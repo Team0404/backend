@@ -9,16 +9,16 @@
 
 | 항목 | 버전/도구 |
 |------|-----------|
-| Language | Java 21 (LTS) |
-| Framework | Spring Boot 4.1.0 |
-| Spring Cloud | 2025.1.2 (Oakwood) |
+| Language | Java 17 (LTS) |
+| Framework | Spring Boot 3.5.16 |
+| Spring Cloud | 2025.0.3 (Northfields) |
 | Build | Gradle 8.14.3 (Wrapper 포함) |
 | Database | PostgreSQL |
 | Cache | Redis |
 | Container | Docker & Docker Compose |
-| API 문서 | Swagger (springdoc-openapi 3.0.3) |
+| API 문서 | Swagger (springdoc-openapi 2.8.9) |
 | 분산 추적 | Zipkin (Micrometer Tracing) |
-| AI | Spring AI 2.0.0 (Google Gemini) |
+| AI | Spring AI 1.1.6 (Google Gemini) |
 
 > 버전은 루트 `build.gradle`의 `ext` 블록에서 중앙 관리합니다. 개별 서비스에서 버전을 직접 명시하지 마세요.
 

@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '4.1.0' apply false
+    id 'org.springframework.boot' version '3.5.16' apply false
     id 'io.spring.dependency-management' version '1.1.7' apply false
 }
 
@@ -9,9 +9,9 @@ allprojects {
     version = '0.0.1-SNAPSHOT'
 
     ext {
-        springCloudVersion = '2025.1.2'
-        springAiVersion = '2.0.0'
-        springdocVersion = '3.0.3'
+        springCloudVersion = '2025.0.3'
+        springAiVersion = '1.1.6'
+        springdocVersion = '2.8.9'
         jjwtVersion = '0.12.6'
     }
 
@@ -27,7 +27,7 @@ subprojects {
 
     java {
         toolchain {
-            languageVersion = JavaLanguageVersion.of(21)
+            languageVersion = JavaLanguageVersion.of(17)
         }
     }
 
