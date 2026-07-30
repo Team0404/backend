@@ -1,0 +1,4 @@
+dependencies {
+    // 서비스 디스커버리 서버
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-server'
+}

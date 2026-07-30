@@ -1,0 +1,17 @@
+dependencies {
+    // 공통 모듈
+    implementation project(':common')
+
+    // API Gateway (WebFlux 기반) + 서비스 디스커버리
+    implementation 'org.springframework.cloud:spring-cloud-starter-gateway-server-webflux'
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+
+    // 인증/인가 (JWT 검증)
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+    // API 문서 통합 (게이트웨이에서 각 서비스 문서 조회)
+    implementation "org.springdoc:springdoc-openapi-starter-webflux-ui:${springdocVersion}"
+}

@@ -1,0 +1,20 @@
+dependencies {
+    // 공통 모듈
+    implementation project(':common')
+
+    // Web + JPA + Validation
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // 서비스 디스커버리 + 서비스 간 통신 (허브 이동정보/배송담당자 연동)
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+    // API 문서
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
+
+    // DB
+    runtimeOnly 'org.postgresql:postgresql'
+}

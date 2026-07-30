@@ -1,0 +1,11 @@
+rootProject.name = 'sparta-logistics'
+
+include 'common'
+include 'eureka-service'
+include 'gateway-service'
+include 'user-service'
+include 'hub-service'
+include 'company-service'
+include 'order-service'
+include 'delivery-service'
+include 'slack-service'

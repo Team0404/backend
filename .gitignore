@@ -1,3 +1,12 @@
+# Environment / Secrets
+.env
+*.env
+!.env.example
+
+# Gradle
+.gradle/
+build/
+
 # IDE
 .idea/
 *.iml
@@ -22,6 +31,9 @@
 *.zip
 *.tar.gz
 *.rar
+
+# Gradle wrapper jar 는 커밋되어야 함 (*.jar 예외)
+!gradle/wrapper/gradle-wrapper.jar
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*

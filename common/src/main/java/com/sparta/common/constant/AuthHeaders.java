@@ -1,0 +1,15 @@
+package com.sparta.common.constant;
+
+/**
+ * 게이트웨이가 JWT 검증 후 다운스트림 서비스로 전달하는 인증 정보 헤더 이름.
+ * 각 서비스는 이 헤더로 인증된 사용자/권한을 신뢰한다.
+ */
+public final class AuthHeaders {
+
+    public static final String USER_ID = "X-User-Id";
+    public static final String USERNAME = "X-Username";
+    public static final String USER_ROLE = "X-User-Role";
+
+    private AuthHeaders() {
+    }
+}
