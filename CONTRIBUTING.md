@@ -32,7 +32,13 @@
    ```
    `.env`는 git에 커밋하지 않습니다. (DB 비밀번호, JWT 시크릿, Gemini API 키, Slack 토큰 등)
 
-2. **인프라 실행** — PostgreSQL, Redis, Zipkin이 필요합니다. (추후 `docker-compose.yml` 제공 예정)
+2. **인프라 실행** — PostgreSQL, Redis, Zipkin을 docker-compose로 한 번에 띄웁니다.
+   ```bash
+   docker compose up -d          # postgres / redis / zipkin
+   docker compose ps             # 상태 확인
+   docker compose down           # 종료 (데이터 유지)
+   ```
+   postgres 최초 기동 시 서비스별 DB(`user_service`, `hub_service`, `company_service`, `order_service`, `delivery_service`, `slack_service`)가 자동 생성됩니다. (**Database per Service** — 각 서비스는 자신의 DB에만 연결)
 
 3. **빌드** — Gradle 설치 없이 Wrapper로 빌드합니다.
    ```bash
@@ -40,12 +46,23 @@
    ./gradlew :hub-service:build   # 특정 서비스만
    ```
 
-4. **실행** — Eureka → Gateway → 나머지 서비스 순으로 기동합니다.
+4. **루트에서 서비스별 실행/테스트** — 인프라는 docker로 띄운 상태에서, 각 서비스는 루트에서 개별 실행합니다.
    ```bash
+   # 실행 (Eureka → Gateway → 나머지 순)
    ./gradlew :eureka-service:bootRun
    ./gradlew :gateway-service:bootRun
    ./gradlew :user-service:bootRun
+
+   # 테스트 (특정 서비스만 / 전체)
+   ./gradlew :user-service:test
+   ./gradlew test
    ```
+
+5. **(선택) 앱까지 도커로 통합 확인** — eureka·gateway를 컨테이너로 함께 올려봅니다.
+   ```bash
+   docker compose --profile apps up -d --build
+   ```
+   > 신규 서비스는 `서비스/Dockerfile`을 추가하고 `docker-compose.yml`의 `apps` 프로필에 등록하면 동일하게 컨테이너로 실행됩니다.
 
 > yml은 로컬 기본값이 들어 있어 환경변수 없이도 대부분 동작하며, 시크릿 값만 `.env`로 주입하면 됩니다. 도커 환경에서는 컨테이너명(host)을 환경변수로 오버라이드합니다.
 
