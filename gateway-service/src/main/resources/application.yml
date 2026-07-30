@@ -40,9 +40,10 @@ spring:
               predicates:
                 - Path=/api/slack/**
 
-# JWT 검증에 사용할 시크릿 (환경변수로 주입)
+# JWT 검증에 사용할 시크릿 (운영은 JWT_SECRET 환경변수로 주입, 로컬은 기본값 사용)
+# user-service(발급)와 반드시 동일한 값을 사용해야 함
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:local-dev-jwt-secret-please-override-in-production-0123456789}
 
 eureka:
   client:
