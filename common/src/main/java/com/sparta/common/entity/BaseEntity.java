@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
  *
  * 사용하려면 각 서비스에서 다음이 필요하다.
  *  1) @EnableJpaAuditing 활성화
- *  2) created_by / updated_by 자동 주입을 위한 AuditorAware<String> 빈 등록
+ *  2) created_by / updated_by 자동 주입을 위한 AuditorAware<Long> 빈 등록
  */
 @Getter
 @MappedSuperclass
@@ -29,27 +29,27 @@ public abstract class BaseEntity {
     private LocalDateTime createdAt;
 
     @CreatedBy
-    @Column(name = "created_by", updatable = false, length = 100)
-    private String createdBy;
+    @Column(name = "created_by", updatable = false)
+    private Long createdBy;
 
     @LastModifiedDate
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     @LastModifiedBy
-    @Column(name = "updated_by", length = 100)
-    private String updatedBy;
+    @Column(name = "updated_by")
+    private Long updatedBy;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    @Column(name = "deleted_by", length = 100)
-    private String deletedBy;
+    @Column(name = "deleted_by")
+    private Long deletedBy;
 
     /**
      * 논리적 삭제 처리. 실제 로우를 지우지 않고 삭제 필드만 채운다.
      */
-    public void softDelete(String deletedBy) {
+    public void softDelete(Long deletedBy) {
         this.deletedAt = LocalDateTime.now();
         this.deletedBy = deletedBy;
     }

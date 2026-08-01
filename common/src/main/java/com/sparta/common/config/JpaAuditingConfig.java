@@ -15,24 +15,30 @@ import java.util.Optional;
  *
  * scanBasePackages 에 "com.sparta" 가 포함된 서비스에서 자동으로 활성화되어
  * BaseEntity 의 created_by / updated_by 를 채운다.
- * 감사자는 게이트웨이가 전달한 {@code X-Username} 헤더에서 가져오며, 없으면 "system".
+ * 감사자는 게이트웨이가 전달한 {@code X-User-Id} 헤더(사용자 PK)에서 가져오며,
+ * 요청 컨텍스트가 없거나 값이 유효하지 않으면 비워 둔다(컬럼 null).
  */
 @Configuration
 @EnableJpaAuditing
 public class JpaAuditingConfig {
 
     @Bean
-    public AuditorAware<String> auditorProvider() {
+    public AuditorAware<Long> auditorProvider() {
         return () -> {
             ServletRequestAttributes attributes =
                     (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes == null) {
-                return Optional.of("system");
+                return Optional.empty();
             }
-            String username = attributes.getRequest().getHeader(AuthHeaders.USERNAME);
-            return Optional.ofNullable(username)
-                    .filter(name -> !name.isBlank())
-                    .or(() -> Optional.of("system"));
+            String userId = attributes.getRequest().getHeader(AuthHeaders.USER_ID);
+            if (userId == null || userId.isBlank()) {
+                return Optional.empty();
+            }
+            try {
+                return Optional.of(Long.valueOf(userId));
+            } catch (NumberFormatException e) {
+                return Optional.empty();
+            }
         };
     }
 }
