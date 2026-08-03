@@ -10,6 +10,7 @@ spring:
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: ${DDL_AUTO:update}
     show-sql: ${SHOW_SQL:true}
@@ -17,14 +18,6 @@ spring:
       hibernate:
         default_schema: ${DB_SCHEMA:order_service}
         format_sql: true
-  # AI 연동 (Gemini - 최종 발송 시한 생성). Gemini Developer API 키 방식
-  ai:
-    google:
-      genai:
-        api-key: ${GEMINI_API_KEY}
-        chat:
-          options:
-            model: ${GEMINI_MODEL:gemini-2.5-flash}
 
 eureka:
   client:
