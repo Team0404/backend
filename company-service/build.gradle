@@ -17,4 +17,16 @@ dependencies {
 
     // DB
     runtimeOnly 'org.postgresql:postgresql'
+
+    // QueryDSL - 검색/정렬(CompanyQueryRepository, ProductQueryRepository)에 사용.
+//    implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
+//    annotationProcessor 'com.querydsl:querydsl-apt:5.0.0:jakarta'
+
+    // com.querydsl:querydsl-jpa는 CVE-2024-49203(HQL Injection) 패치가 없는 상태라
+    // 커뮤니티 포크인 io.github.openfeign.querydsl로 교체 (패치 버전: 6.10.1 이상)
+    implementation 'io.github.openfeign.querydsl:querydsl-jpa:6.11'
+    annotationProcessor 'io.github.openfeign.querydsl:querydsl-apt:6.11:jpa'
+
+    annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
+    annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
 }
