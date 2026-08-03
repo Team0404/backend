@@ -43,7 +43,7 @@ assignees: ""
 | 항목 | 내용 |
 |------|------|
 | Method | `GET / POST / PUT / DELETE` |
-| URL | `/api/...` |
+| URL | `/api/v1/...` |
 | 권한 | `MASTER / HUB_MANAGER / DELIVERY_MANAGER / SUPPLIER_MANAGER` |
 
 **Request 예시:**
