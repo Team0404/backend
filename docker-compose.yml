@@ -1,0 +1,69 @@
+# 로컬 개발용 인프라 + 앱 컨테이너
+#
+#   docker compose up -d                  # 인프라(postgres/redis/zipkin)만 기동
+#   docker compose --profile apps up -d   # 인프라 + eureka + gateway 까지 기동
+#
+# 앱은 보통 로컬에서 ./gradlew :서비스:bootRun 으로 띄우고,
+# 인프라만 docker 로 올리는 방식을 권장한다. (apps 프로필은 통합 확인용)
+
+services:
+  # ---------------- 인프라 ----------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: sparta-postgres
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # 서비스별 DB 생성 스크립트 (최초 기동 시 1회 실행)
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sparta-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: sparta-zipkin
+    ports:
+      - "9411:9411"
+
+  # ---------------- 앱 (profile: apps) ----------------
+  eureka:
+    build:
+      context: .
+      dockerfile: eureka-service/Dockerfile
+    container_name: sparta-eureka
+    profiles: ["apps"]
+    ports:
+      - "8761:8761"
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway-service/Dockerfile
+    container_name: sparta-gateway
+    profiles: ["apps"]
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_URL: http://eureka:8761/eureka/
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: ${JWT_SECRET:-replace-with-a-long-random-secret-key}
+    depends_on:
+      - eureka
+      - zipkin
+
+volumes:
+  postgres-data:

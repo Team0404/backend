@@ -1,0 +1,60 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # 유레카에 등록된 서비스로 자동 라우팅 (lb://SERVICE-ID)
+          discovery:
+            locator:
+              enabled: true
+              lower-case-service-id: true
+          # 명시적 라우트가 필요하면 아래에 추가
+          routes:
+            - id: user-service
+              uri: lb://user-service
+              predicates:
+                - Path=/api/users/**, /api/auth/**
+            - id: hub-service
+              uri: lb://hub-service
+              predicates:
+                - Path=/api/hubs/**, /api/hub-routes/**
+            - id: company-service
+              uri: lb://company-service
+              predicates:
+                - Path=/api/companies/**, /api/products/**
+            - id: order-service
+              uri: lb://order-service
+              predicates:
+                - Path=/api/orders/**
+            - id: delivery-service
+              uri: lb://delivery-service
+              predicates:
+                - Path=/api/deliveries/**
+            - id: slack-service
+              uri: lb://slack-service
+              predicates:
+                - Path=/api/slack/**
+
+# JWT 검증에 사용할 시크릿 (운영은 JWT_SECRET 환경변수로 주입, 로컬은 기본값 사용)
+# user-service(발급)와 반드시 동일한 값을 사용해야 함
+jwt:
+  secret: ${JWT_SECRET:local-dev-jwt-secret-please-override-in-production-0123456789}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+
+# Zipkin 분산 추적
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411/api/v2/spans}

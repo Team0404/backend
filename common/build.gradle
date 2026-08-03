@@ -1,0 +1,14 @@
+// 공통 모듈: 실행 가능한 부트 애플리케이션이 아니라 라이브러리 jar로 빌드
+bootJar {
+    enabled = false
+}
+jar {
+    enabled = true
+}
+
+dependencies {
+    // 컴파일에만 필요 (각 서비스가 런타임 의존성을 이미 보유하므로 compileOnly)
+    compileOnly 'org.springframework.boot:spring-boot-starter-web'
+    compileOnly 'org.springframework.boot:spring-boot-starter-data-jpa'
+    compileOnly 'org.springframework.boot:spring-boot-starter-validation'
+}
