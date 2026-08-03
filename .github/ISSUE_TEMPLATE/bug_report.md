@@ -43,7 +43,7 @@ assignees: ""
 ## 관련 API
 
 - 메서드: `GET / POST / PUT / DELETE`
-- 엔드포인트: `/api/...`
+- 엔드포인트: `/api/v1/...`
 - 요청 예시:
 ```json
 

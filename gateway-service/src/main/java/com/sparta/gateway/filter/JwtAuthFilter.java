@@ -26,8 +26,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     // 인증 없이 통과할 경로 (user-service의 로그인/회원가입 + 공통 엔드포인트)
     private static final List<String> WHITELIST = List.of(
-            "/api/auth/",
-            "/api/users/signup",
+            "/api/v1/auth/",
+            "/api/v1/users/signup",
             "/actuator/",
             "/swagger-ui/",
             "/v3/api-docs/"
