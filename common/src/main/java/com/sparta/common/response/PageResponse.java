@@ -1,4 +1,4 @@
-package com.sparta.common.util;
+package com.sparta.common.response;
 
 import org.springframework.data.domain.Page;
 
