@@ -12,6 +12,8 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
+import java.util.UUID;
+
 public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolver {
 
     @Override
@@ -28,13 +30,19 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
 
         HttpServletRequest request = (HttpServletRequest) webRequest.getNativeRequest();
 
-        String userId = request.getHeader(AuthHeaders.USER_ID);
+        String userIdHeader = request.getHeader(AuthHeaders.USER_ID);
         String username = request.getHeader(AuthHeaders.USERNAME);
         String role = request.getHeader(AuthHeaders.USER_ROLE);
 
-        if (userId == null || role == null) {
-            // Gateway를 거치지 않고 직접 호출된 경우 등, 인증 헤더가 없으면 인증 실패로 처리
+        if (userIdHeader == null || role == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        UUID userId;
+        try {
+            userId = UUID.fromString(userIdHeader);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.INVALID_TOKEN);
         }
 
         return new AuthUser(userId, username, role);
