@@ -9,14 +9,14 @@ import lombok.Getter;
 @Getter
 public class BusinessException extends RuntimeException {
 
-    private final ErrorCode errorCode;
+    private final ErrorCodeIfs errorCode;
 
-    public BusinessException(ErrorCode errorCode) {
+    public BusinessException(ErrorCodeIfs errorCode) {
         super(errorCode.getMessage());
         this.errorCode = errorCode;
     }
 
-    public BusinessException(ErrorCode errorCode, String message) {
+    public BusinessException(ErrorCodeIfs errorCode, String message) {
         super(message);
         this.errorCode = errorCode;
     }

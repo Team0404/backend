@@ -3,6 +3,7 @@ package com.sparta.company.product.entity;
 import com.sparta.common.entity.BaseEntity;
 import com.sparta.common.exception.BusinessException;
 import com.sparta.company.company.entity.Company;
+import com.sparta.company.product.exception.ProductErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -78,9 +79,9 @@ public class Product extends BaseEntity {
 
     /** 주문 생성으로 인한 재고 차감 (Order 서비스 decrease-stock에서 호출). 재고 부족 시 예외. */
     public void decreaseStock(long amount) {
-//        if (this.stockQuantity < amount) {
-//            throw new BusinessException(ProductErrorCode.INSUFFICIENT_STOCK);
-//        }
+        if (this.stockQuantity < amount) {
+            throw new BusinessException(ProductErrorCode.INSUFFICIENT_STOCK);
+        }
         this.stockQuantity -= amount;
     }
 }
