@@ -1,0 +1,75 @@
+# 운영(EC2) 배포용 compose.
+# 앱 이미지는 GitHub Actions가 GHCR(ghcr.io/team0404/*)에 push한 것을 pull 한다.
+# 외부에 개방되는 포트는 gateway(8080) 하나뿐 — 나머지는 compose 내부 네트워크로만 통신.
+#
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# 필요한 값은 같은 폴더의 .env 에서 주입 (DB_PASSWORD, JWT_SECRET 등)
+
+services:
+  # ---------------- 인프라 (외부 포트 미개방) ----------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: sparta-postgres
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: sparta-redis
+    restart: unless-stopped
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: sparta-zipkin
+    restart: unless-stopped
+
+  # ---------------- 앱 (GHCR 이미지) ----------------
+  eureka:
+    image: ghcr.io/team0404/eureka-service:latest
+    container_name: sparta-eureka
+    restart: unless-stopped
+
+  gateway:
+    image: ghcr.io/team0404/gateway-service:latest
+    container_name: sparta-gateway
+    ports:
+      - "8080:8080"          # ★ 외부 진입점만 개방
+    environment:
+      EUREKA_URL: http://eureka:8761/eureka/
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      - eureka
+    restart: unless-stopped
+
+  user-service:
+    image: ghcr.io/team0404/user-service:latest
+    container_name: sparta-user
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URL: http://eureka:8761/eureka/
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      - postgres
+      - eureka
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

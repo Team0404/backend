@@ -1,0 +1,74 @@
+name: Deploy
+
+# 지정 브랜치에 머지되면 이미지를 빌드해 GHCR 에 올리고, EC2 에서 pull & 재기동한다.
+# 배포 대상 브랜치는 아래 branches 한 줄만 바꾸면 됨 (dev → main 등).
+on:
+  push:
+    branches: [ dev ]     # 현재: dev 배포. 운영 전환 시 main 으로 변경.
+  workflow_dispatch:   # 수동 실행도 허용
+
+env:
+  IMAGE_PREFIX: ghcr.io/team0404
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service: [ eureka-service, gateway-service, user-service ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # compose 파일과 DB 초기화 스크립트를 EC2 로 전송
+      - name: Copy files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose.prod.yml,docker"
+          target: /home/ubuntu/app
+
+      # EC2 에서 최신 이미지 pull 후 재기동
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: GHCR_ACTOR,GHCR_TOKEN
+          script: |
+            cd /home/ubuntu/app
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_ACTOR" --password-stdin
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+            docker image prune -f
+        env:
+          GHCR_ACTOR: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
