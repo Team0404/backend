@@ -63,6 +63,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isWhitelisted(String path) {
+        // Swagger 통합 UI / 문서 프록시(/{service}/v3/api-docs 포함) 는 인증 없이 허용
+        if (path.startsWith("/swagger-ui") || path.contains("/v3/api-docs")) {
+            return true;
+        }
         return WHITELIST.stream().anyMatch(path::startsWith);
     }
 

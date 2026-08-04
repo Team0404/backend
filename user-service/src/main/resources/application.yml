@@ -5,7 +5,7 @@ spring:
   application:
     name: user-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sparta_logistics}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/user_service
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
@@ -15,12 +15,11 @@ spring:
     show-sql: ${SHOW_SQL:true}
     properties:
       hibernate:
-        default_schema: ${DB_SCHEMA:user_service}
         format_sql: true
 
-# JWT 발급/검증 시크릿
+# JWT 발급 시크릿 (gateway 검증과 반드시 동일 값)
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:local-dev-jwt-secret-please-override-in-production-0123456789}
   access-expiration: ${JWT_ACCESS_EXPIRATION:3600000}   # 1시간(ms)
 
 eureka:
