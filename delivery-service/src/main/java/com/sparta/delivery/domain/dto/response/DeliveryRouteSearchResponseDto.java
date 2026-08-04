@@ -16,5 +16,5 @@ public class DeliveryRouteSearchResponseDto {
     private BigDecimal actualDistanceKm;
     private Integer actualDurationMin;
     private String status;
-    private Long hubDeliveryManagerId;
+    private UUID hubDeliveryManagerId;
 }
