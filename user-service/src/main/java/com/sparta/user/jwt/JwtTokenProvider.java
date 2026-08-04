@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * Access Token 발급기.
@@ -28,7 +29,7 @@ public class JwtTokenProvider {
         this.accessExpiration = accessExpiration;
     }
 
-    public String createAccessToken(Long userId, String username, UserRole role) {
+    public String createAccessToken(UUID userId, String username, UserRole role) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + accessExpiration);
         return Jwts.builder()
