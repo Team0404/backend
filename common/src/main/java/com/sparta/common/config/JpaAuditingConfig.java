@@ -9,6 +9,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * JPA Auditing 공통 설정.
@@ -23,7 +24,7 @@ import java.util.Optional;
 public class JpaAuditingConfig {
 
     @Bean
-    public AuditorAware<Long> auditorProvider() {
+    public AuditorAware<UUID> auditorProvider() {
         return () -> {
             ServletRequestAttributes attributes =
                     (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
@@ -35,8 +36,8 @@ public class JpaAuditingConfig {
                 return Optional.empty();
             }
             try {
-                return Optional.of(Long.valueOf(userId));
-            } catch (NumberFormatException e) {
+                return Optional.of(UUID.fromString(userId));
+            } catch (IllegalArgumentException e) {
                 return Optional.empty();
             }
         };

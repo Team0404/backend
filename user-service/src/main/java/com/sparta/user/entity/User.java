@@ -24,9 +24,9 @@ import java.util.UUID;
 public class User extends BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "user_id")
-    private Long userId;
+    private UUID userId;
 
     @Column(nullable = false, unique = true, length = 100)
     private String username;
@@ -47,6 +47,10 @@ public class User extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "approval_status", nullable = false, length = 20)
     private ApprovalStatus approvalStatus;
+
+    // 가입 거절 사유 (거절 시에만 채워짐)
+    @Column(name = "rejection_reason", length = 255)
+    private String rejectionReason;
 
     // 소속 허브(허브 관리자) / 소속 업체(업체 담당자) — 선택값
     @Column(name = "hub_id")
@@ -70,10 +74,12 @@ public class User extends BaseEntity {
 
     public void approve() {
         this.approvalStatus = ApprovalStatus.APPROVED;
+        this.rejectionReason = null;
     }
 
-    public void reject() {
+    public void reject(String reason) {
         this.approvalStatus = ApprovalStatus.REJECTED;
+        this.rejectionReason = reason;
     }
 
     public boolean isApproved() {
