@@ -40,6 +40,44 @@ spring:
               predicates:
                 - Path=/api/v1/slack/**
 
+            # --- Swagger(OpenAPI) 문서 프록시: /{service}/v3/api-docs → 각 서비스의 /v3/api-docs ---
+            - id: user-service-docs
+              uri: lb://user-service
+              predicates:
+                - Path=/user-service/v3/api-docs
+              filters:
+                - RewritePath=/user-service/(?<seg>.*), /$\{seg}
+            - id: hub-service-docs
+              uri: lb://hub-service
+              predicates:
+                - Path=/hub-service/v3/api-docs
+              filters:
+                - RewritePath=/hub-service/(?<seg>.*), /$\{seg}
+            - id: company-service-docs
+              uri: lb://company-service
+              predicates:
+                - Path=/company-service/v3/api-docs
+              filters:
+                - RewritePath=/company-service/(?<seg>.*), /$\{seg}
+            - id: order-service-docs
+              uri: lb://order-service
+              predicates:
+                - Path=/order-service/v3/api-docs
+              filters:
+                - RewritePath=/order-service/(?<seg>.*), /$\{seg}
+            - id: delivery-service-docs
+              uri: lb://delivery-service
+              predicates:
+                - Path=/delivery-service/v3/api-docs
+              filters:
+                - RewritePath=/delivery-service/(?<seg>.*), /$\{seg}
+            - id: slack-service-docs
+              uri: lb://slack-service
+              predicates:
+                - Path=/slack-service/v3/api-docs
+              filters:
+                - RewritePath=/slack-service/(?<seg>.*), /$\{seg}
+
 # JWT 검증에 사용할 시크릿 (운영은 JWT_SECRET 환경변수로 주입, 로컬은 기본값 사용)
 # user-service(발급)와 반드시 동일한 값을 사용해야 함
 jwt:
@@ -58,3 +96,23 @@ management:
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_URL:http://localhost:9411/api/v2/spans}
+
+# Swagger 통합: 게이트웨이(8080) 한 곳에서 모든 서비스 문서를 드롭다운으로 조회
+# 각 서비스가 실행+Eureka 등록된 상태여야 해당 항목이 로드된다.
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    use-root-path: true
+    urls:
+      - name: user-service
+        url: /user-service/v3/api-docs
+      - name: hub-service
+        url: /hub-service/v3/api-docs
+      - name: company-service
+        url: /company-service/v3/api-docs
+      - name: order-service
+        url: /order-service/v3/api-docs
+      - name: delivery-service
+        url: /delivery-service/v3/api-docs
+      - name: slack-service
+        url: /slack-service/v3/api-docs
