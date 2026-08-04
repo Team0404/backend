@@ -2,6 +2,7 @@ package com.sparta.common.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.sparta.common.exception.ErrorCode;
+import com.sparta.common.exception.ErrorCodeIfs;
 import lombok.Getter;
 
 /**
@@ -39,11 +40,11 @@ public class ApiResponse<T> {
         return new ApiResponse<>(true, "OK", "요청이 정상 처리되었습니다.", null);
     }
 
-    public static ApiResponse<Void> error(ErrorCode errorCode) {
+    public static ApiResponse<Void> error(ErrorCodeIfs errorCode) {
         return new ApiResponse<>(false, errorCode.getCode(), errorCode.getMessage(), null);
     }
 
-    public static ApiResponse<Void> error(ErrorCode errorCode, String message) {
+    public static ApiResponse<Void> error(ErrorCodeIfs errorCode, String message) {
         return new ApiResponse<>(false, errorCode.getCode(), message, null);
     }
 }
