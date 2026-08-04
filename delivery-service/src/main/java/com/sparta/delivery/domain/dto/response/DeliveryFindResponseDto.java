@@ -16,6 +16,6 @@ public class DeliveryFindResponseDto {
     private String deliveryAddress;
     private String recipientName;
     private String recipientSlackId;
-    private Long companyDeliveryManagerId;
+    private UUID companyDeliveryManagerId;
     private List<DeliveryRouteSearchResponseDto> routes;
 }
