@@ -1,6 +1,7 @@
 package com.sparta.hub.entity;
 
 import com.sparta.common.entity.BaseEntity;
+import com.sparta.hub.dto.request.HubUpdateRequest;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -37,11 +38,11 @@ public class Hub extends BaseEntity {
         this.longitude = longitude;
     }
 
-    public void update(String name, String address, BigDecimal latitude, BigDecimal longitude) {
-        this.name = name;
-        this.address = address;
-        this.latitude = latitude;
-        this.longitude = longitude;
+    public void update(HubUpdateRequest request) {
+        this.name = request.getName();
+        this.address = request.getAddress();
+        this.latitude = request.getLatitude();
+        this.longitude = request.getLongitude();
     }
 
 
