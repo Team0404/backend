@@ -9,12 +9,14 @@ import lombok.Getter;
  * 모든 API 응답을 감싸는 공통 응답 포맷.
  *
  * <pre>
- * { "success": true, "code": "OK", "message": "...", "data": { ... } }
+ * { "success": true, "code": "200", "message": "...", "data": { ... } }
  * </pre>
  */
 @Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
+
+    private static final String SUCCESS_CODE = "200";
 
     private final boolean success;
     private final String code;
@@ -29,15 +31,15 @@ public class ApiResponse<T> {
     }
 
     public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>(true, "OK", "요청이 정상 처리되었습니다.", data);
+        return new ApiResponse<>(true, SUCCESS_CODE, "요청이 정상 처리되었습니다.", data);
     }
 
     public static <T> ApiResponse<T> success(String message, T data) {
-        return new ApiResponse<>(true, "OK", message, data);
+        return new ApiResponse<>(true, SUCCESS_CODE, message, data);
     }
 
     public static ApiResponse<Void> success() {
-        return new ApiResponse<>(true, "OK", "요청이 정상 처리되었습니다.", null);
+        return new ApiResponse<>(true, SUCCESS_CODE, "요청이 정상 처리되었습니다.", null);
     }
 
     public static ApiResponse<Void> error(ErrorCodeIfs errorCode) {
