@@ -17,6 +17,8 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
@@ -52,6 +54,20 @@ public class OrderRepositoryImpl implements OrderRepositoryCustom {
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
     }
 
+    @Override
+    public Optional<Order> findDetailById(OrderSearchCriteria criteria, UUID orderId) {
+        return Optional.ofNullable(
+                queryFactory
+                        .selectFrom(ORDER)
+                        .leftJoin(ORDER.orderItems).fetchJoin()
+                        .where(
+                                ORDER.id.eq(orderId),
+                                buildPredicate(criteria)
+                        )
+                        .fetchOne()
+        );
+    }
+
     private JPAQuery<Order> baseQuery(BooleanBuilder predicate) {
         return queryFactory
                 .selectFrom(ORDER)
@@ -74,14 +90,26 @@ public class OrderRepositoryImpl implements OrderRepositoryCustom {
         }
 
         return switch (criteria.userRole()) {
-            case MASTER, DELIVERY_MANAGER -> builder;
+            case MASTER -> builder;
+            case DELIVERY_MANAGER -> {
+                // TODO: delivery-service 연동 후 requestDeliveryManagerId 기준으로 담당 배송만 필터링
+                // 현재는 담당 배송 매핑 정보가 없어 전체 조회를 막기 위해 결과를 비운다.
+                yield builder.and(ORDER.id.isNull());
+            }
             case HUB_MANAGER -> {
                 if (criteria.requestHubId() != null) {
                     builder.and(ORDER.hubId.eq(criteria.requestHubId()));
                 }
                 yield builder;
             }
-            case SUPPLIER_MANAGER -> builder.and(ORDER.createdBy.eq(criteria.requestUserId()));
+            case SUPPLIER_MANAGER -> {
+                if (criteria.requestCompanyId() != null) {
+                    builder.and(ORDER.companyId.eq(criteria.requestCompanyId()));
+                } else {
+                    builder.and(ORDER.createdBy.eq(criteria.requestUserId()));
+                }
+                yield builder;
+            }
         };
     }
 

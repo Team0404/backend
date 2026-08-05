@@ -4,6 +4,7 @@ import com.sparta.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
+
 import java.util.UUID;
 
 @Entity
@@ -28,4 +29,8 @@ public class OrderItem extends BaseEntity {
 
     @Column(nullable = false)
     private Integer quantity;
+
+    public void assignOrder(Order order) {
+        this.order = order;
+    }
 }

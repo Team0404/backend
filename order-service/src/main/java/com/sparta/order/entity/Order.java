@@ -4,10 +4,11 @@ import com.sparta.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
+
 import java.time.LocalDateTime;
-import java.util.UUID;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "p_orders")
@@ -54,5 +55,19 @@ public class Order extends BaseEntity {
 
     public void setDeliveryId(UUID deliveryId) {
         this.deliveryId = deliveryId;
+    }
+
+    public void updateDetails(String requestNote, LocalDateTime deliveryDeadline) {
+        if (requestNote != null) {
+            this.requestNote = requestNote;
+        }
+        if (deliveryDeadline != null) {
+            this.deliveryDeadline = deliveryDeadline;
+        }
+    }
+
+    public void addOrderItem(OrderItem item) {
+        item.assignOrder(this);
+        this.orderItems.add(item);
     }
 }
