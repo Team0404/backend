@@ -49,11 +49,15 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         try {
             Claims claims = jwtTokenProvider.validateAndExtract(token);
             ServerWebExchange mutated = exchange.mutate()
-                    .request(r -> r
-                            .header(AuthHeaders.USER_ID, claims.getSubject())
-                            .header(AuthHeaders.USERNAME, claims.get("username", String.class))
-                            .header(AuthHeaders.USER_ROLE, claims.get("role", String.class))
-                    )
+                    .request(r -> r.headers(headers -> {
+                        // 외부 요청이 위조한 인증 헤더는 전달하지 않는다.
+                        headers.remove(AuthHeaders.USER_ID);
+                        headers.remove(AuthHeaders.USERNAME);
+                        headers.remove(AuthHeaders.USER_ROLE);
+                        headers.set(AuthHeaders.USER_ID, claims.getSubject());
+                        headers.set(AuthHeaders.USERNAME, claims.get("username", String.class));
+                        headers.set(AuthHeaders.USER_ROLE, claims.get("role", String.class));
+                    }))
                     .build();
             return chain.filter(mutated);
         } catch (Exception e) {
