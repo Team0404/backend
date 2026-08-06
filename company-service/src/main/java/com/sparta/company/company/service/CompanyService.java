@@ -96,10 +96,7 @@ public class CompanyService {
                 .map(CompanyResponse::from);
     }
 
-    // ----------------------------------------------------------------
     // 내부 검증 로직
-    // ----------------------------------------------------------------
-
     private Company getActiveCompanyOrThrow(UUID companyId) {
         return companyRepository.findByIdAndDeletedAtIsNull(companyId)
                 .orElseThrow(() -> new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND));
