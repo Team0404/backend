@@ -53,20 +53,23 @@ public class Delivery extends BaseEntity {
             String recipientSlackId,
             UUID companyDeliveryManagerId
     ){
-        if(!status.isBlank()){
+        if(status != null && !status.isBlank()){
+            DeliveryStatusEnum next;
             try {
-                this.status = DeliveryStatusEnum.valueOf(status); // 대소문자 구분 방지
+                // TODO transition 설정
+                next = DeliveryStatusEnum.valueOf(status);
+                this.status = next;
             } catch (IllegalArgumentException e) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT, "유효하지않은 Status 입니다.");
             }
         }
-        if(!deliveryAddress.isBlank()){
+        if(deliveryAddress != null && !deliveryAddress.isBlank()){
             this.deliveryAddress = deliveryAddress;
         }
-        if(!recipientName.isBlank()){
+        if(recipientName != null && !recipientName.isBlank()){
             this.recipientName = recipientName;
         }
-        if(!recipientSlackId.isBlank()){
+        if(recipientSlackId != null && !recipientSlackId.isBlank()){
             this.recipientSlackId = recipientSlackId;
         }
         if(companyDeliveryManagerId != null){

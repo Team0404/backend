@@ -56,9 +56,11 @@ public class DeliveryService {
     @Transactional
     public ApiResponse<DeliveryCreateResponseDto> createDelivery(DeliveryCreateRequestDto request, UUID userId, UserRole role, String internalCaller) {
         // TODO 혀용 서비스 목록 Set.contain - 서비스여도 좋고 common도 좋고
-        if(UserRole.MASTER.equals(role) && internalCaller.equals("order-service")){
+        boolean isOrderService = "order-service".equals(internalCaller);
+        if (!UserRole.MASTER.equals(role) && !isOrderService) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
+
         // TODO 동시성 고려
         if(deliveryRepository.existsByOrderId(request.getOrderId())){
             throw new BusinessException(DeliveryErrorCode.DELIVERY_ALREADY_EXISTS);
@@ -138,7 +140,7 @@ public class DeliveryService {
     @Transactional
     public ApiResponse<DeliveryUpdateResponseDto> updateDelivery(
             UUID deliveryId, DeliveryUpdateRequestDto request, UUID userId, UserRole role) {
-        Delivery delivery = deliveryRepository.findByDeliveryIdAndDeletedAtIsNotNull(deliveryId).orElseThrow(
+        Delivery delivery = deliveryRepository.findByDeliveryIdAndDeletedAtIsNull(deliveryId).orElseThrow(
                 () -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND)
         );
         authorizeDeliveryAccess(delivery, userId, role);
