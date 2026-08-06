@@ -16,6 +16,8 @@ spring:
     properties:
       hibernate:
         default_schema: ${DB_SCHEMA:company_service}
+        hbm2ddl:
+          create_namespaces: true
         format_sql: true
 
 eureka:
