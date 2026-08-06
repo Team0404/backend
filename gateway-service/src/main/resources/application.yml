@@ -42,40 +42,52 @@ spring:
 
             # --- Swagger(OpenAPI) 문서 프록시: /{service}/v3/api-docs → 각 서비스의 /v3/api-docs ---
             - id: user-service-docs
+              order: -1
               uri: lb://user-service
               predicates:
                 - Path=/user-service/v3/api-docs
               filters:
+                - PreserveHostHeader
                 - RewritePath=/user-service/(?<seg>.*), /$\{seg}
             - id: hub-service-docs
+              order: -1
               uri: lb://hub-service
               predicates:
                 - Path=/hub-service/v3/api-docs
               filters:
+                - PreserveHostHeader
                 - RewritePath=/hub-service/(?<seg>.*), /$\{seg}
             - id: company-service-docs
+              order: -1
               uri: lb://company-service
               predicates:
                 - Path=/company-service/v3/api-docs
               filters:
+                - PreserveHostHeader
                 - RewritePath=/company-service/(?<seg>.*), /$\{seg}
             - id: order-service-docs
+              order: -1
               uri: lb://order-service
               predicates:
                 - Path=/order-service/v3/api-docs
               filters:
+                - PreserveHostHeader
                 - RewritePath=/order-service/(?<seg>.*), /$\{seg}
             - id: delivery-service-docs
+              order: -1
               uri: lb://delivery-service
               predicates:
                 - Path=/delivery-service/v3/api-docs
               filters:
+                - PreserveHostHeader
                 - RewritePath=/delivery-service/(?<seg>.*), /$\{seg}
             - id: slack-service-docs
+              order: -1
               uri: lb://slack-service
               predicates:
                 - Path=/slack-service/v3/api-docs
               filters:
+                - PreserveHostHeader
                 - RewritePath=/slack-service/(?<seg>.*), /$\{seg}
 
 # JWT 검증에 사용할 시크릿 (운영은 JWT_SECRET 환경변수로 주입, 로컬은 기본값 사용)
