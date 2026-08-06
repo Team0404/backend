@@ -47,6 +47,7 @@ public class DeliveryRoute extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
+    @Builder.Default
     public DeliveryRouteStatusEnum status = DeliveryRouteStatusEnum.HUB_MOVE_WAIT;
 
     @Column(name = "hub_delivery_manager_id")

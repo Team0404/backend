@@ -25,6 +25,7 @@ public class Delivery extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
+    @Builder.Default
     private DeliveryStatusEnum status = DeliveryStatusEnum.HUB_WAIT;
 
     @Column(name = "origin_hub_id", nullable = false)
