@@ -16,6 +16,8 @@ spring:
     properties:
       hibernate:
         default_schema: ${DB_SCHEMA:hub_service}
+        hbm2ddl:
+          create_namespaces: true
         format_sql: true
   # Redis 캐싱 (허브 정보, 허브 간 이동정보)
   data:
