@@ -55,7 +55,7 @@ public class DeliveryController {
 
     // D3. 배송 목록/검색 (권한 범위는 서버에서 자동 필터링)
     @GetMapping("/deliveries")
-    public PageResponse<DeliverySearchResponseDto> searchDelivery(
+    public PageResponse<DeliverySummaryResponseDto> searchDelivery(
             @CurrentUser UserPrincipal authUser,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) UUID destHubId,

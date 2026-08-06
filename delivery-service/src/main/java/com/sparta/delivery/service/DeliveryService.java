@@ -23,8 +23,7 @@ import com.sparta.delivery.repository.DeliveryManagerRepository;
 import com.sparta.delivery.repository.DeliveryRepository;
 import com.sparta.delivery.repository.DeliveryRouteRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.web.error.Error;
-import org.springframework.core.io.ResourceLoader;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,7 +45,6 @@ public class DeliveryService {
     private final UserClient userClient;
     private final OrderClient orderClient;
     private final HubClient hubClient;
-    private final ResourceLoader resourceLoader;
 
     // TODO: HubClient(허브 간 경로 조회), UserClient(허브소속/주문소유 확인) — @FeignClient interface 로 추가
 
@@ -132,9 +130,48 @@ public class DeliveryService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<DeliverySearchResponseDto> searchDelivery(
+    public PageResponse<DeliverySummaryResponseDto> searchDelivery(
             String status, UUID destHubId, String recipientName, Pageable pageable, UUID userId, UserRole role) {
-        throw new UnsupportedOperationException("TODO");
+        Pageable normalized = PageableUtil.normalize(pageable);
+
+        DeliveryStatusEnum statusEnum = null;
+        if (status != null && !status.isBlank()) {
+            statusEnum = DeliveryStatusEnum.fromString(status);
+        }
+
+        UUID scopeHubId = null;
+        UUID scopeManagerId = null;
+        List<UUID> scopeRouteDeliveryIds = List.of();
+
+        switch (role) {
+            case MASTER -> {
+            }
+            case HUB_MANAGER -> {
+                ApiResponse<UserInfoResponse> userResponse = userClient.getUser(userId);
+                if (!userResponse.isSuccess()) {
+                    throw new BusinessException(ErrorCode.FEIGN_CLIENT_ERROR, "Delivery -> User 조회 실패");
+                }
+                scopeHubId = userResponse.getData().getHubId();
+            }
+            case DELIVERY_MANAGER -> {
+                scopeManagerId = userId;
+                scopeRouteDeliveryIds = deliveryRouteRepository.findDeliveryIdByHubDeliveryManagerId(userId);
+            }
+            // TODO: OrderClient 본인 주문 목록 조회 API 필요
+            case SUPPLIER_MANAGER -> throw new UnsupportedOperationException("TODO: OrderClient 본인 주문 목록 조회 API 필요");
+        }
+
+        Page<Delivery> page = deliveryRepository.search(
+                statusEnum, destHubId, recipientName, scopeHubId, scopeManagerId, scopeRouteDeliveryIds, normalized
+        );
+
+        return PageResponse.from(page.map(d -> DeliverySummaryResponseDto.builder()
+                .deliveryId(d.getDeliveryId())
+                .orderId(d.getOrderId())
+                .status(d.getStatus())
+                .destHubId(d.getDestHubId())
+                .recipientName(d.getRecipientName())
+                .build()));
     }
 
     @Transactional
@@ -143,7 +180,7 @@ public class DeliveryService {
         Delivery delivery = deliveryRepository.findByDeliveryIdAndDeletedAtIsNull(deliveryId).orElseThrow(
                 () -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND)
         );
-        authorizeDeliveryAccess(delivery, userId, role);
+        authorizeDeliveryUpdate(delivery, userId, role);
         delivery.update(
                 request.getStatus(), request.getDeliveryAddress(),
                 request.getRecipientName(), request.getRecipientSlackId(),
@@ -160,7 +197,7 @@ public class DeliveryService {
         Delivery delivery = deliveryRepository.findById(deliveryId).orElseThrow(
                 () -> new BusinessException(DeliveryErrorCode.DELIVERY_NOT_FOUND)
         );
-        authorizeDeliveryAccess(delivery, userId, role);
+        authorizeDeliveryDelete(delivery, userId, role);
         delivery.softDelete(userId);
         return ApiResponse.success(null);
     }
@@ -168,13 +205,45 @@ public class DeliveryService {
     @Transactional(readOnly = true)
     public ApiResponse<List<DeliveryRouteSearchResponseDto>> findDeliveryRoutes(
             UUID deliveryId, UUID userId, UserRole role) {
-        throw new UnsupportedOperationException("TODO");
+        Delivery delivery = deliveryRepository.findById(deliveryId).orElseThrow(
+                () -> new BusinessException(DeliveryErrorCode.DELIVERY_NOT_FOUND)
+        );
+        authorizeDeliveryAccess(delivery, userId, role);
+
+        List<DeliveryRouteSearchResponseDto> routes = deliveryRouteRepository
+                .findAllByDeliveryOrderBySequenceAsc(delivery).stream()
+                .map(r -> DeliveryRouteSearchResponseDto.builder()
+                        .deliveryRouteId(r.getId())
+                        .sequence(r.getSequence())
+                        .originHubId(r.getOriginHubId())
+                        .destHubId(r.getDestHubId())
+                        .expectedDistanceKm(r.getExpectedDistanceKm())
+                        .expectedDurationMin(r.getExpectedDurationMin())
+                        .actualDistanceKm(r.getActualDistanceKm())
+                        .actualDurationMin(r.getActualDurationMin())
+                        .status(String.valueOf(r.getStatus()))
+                        .hubDeliveryManagerId(r.getHubDeliveryManagerId())
+                        .build())
+                .toList();
+
+        return ApiResponse.success(routes);
     }
 
     @Transactional
     public ApiResponse<DeliveryRouteUpdateResponseDto> updateDeliveryRoute(
             UUID deliveryRouteId, DeliveryRouteUpdateRequestDto request, UUID userId, UserRole role) {
-        throw new UnsupportedOperationException("TODO");
+        DeliveryRoute route = deliveryRouteRepository.findById(deliveryRouteId).orElseThrow(
+                () -> new BusinessException(DeliveryErrorCode.DELIVERY_ROUTE_NOT_FOUND)
+        );
+        authorizeRouteAccess(route, userId, role);
+        route.update(
+                request.getStatus(), request.getActualDistanceKm(),
+                request.getActualDurationMin(), request.getHubDeliveryManagerId()
+        );
+        return ApiResponse.success(DeliveryRouteUpdateResponseDto.builder()
+                .deliveryRouteId(route.getId())
+                .status(route.getStatus())
+                .build());
     }
 
     // ── 내부 헬퍼 ────────────────────────────────────────────────
@@ -207,6 +276,52 @@ public class DeliveryService {
                 }
             }
             case SUPPLIER_MANAGER -> throw new UnsupportedOperationException("TODO: OrderClient 주문 소유자 확인 API 필요");
+        }
+    }
+
+    private void authorizeDeliveryUpdate(Delivery delivery, UUID userId, UserRole role) {
+        if (role == UserRole.SUPPLIER_MANAGER) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        authorizeDeliveryAccess(delivery, userId, role);
+    }
+
+    private void authorizeDeliveryDelete(Delivery delivery, UUID userId, UserRole role) {
+        if (role == UserRole.SUPPLIER_MANAGER || role == UserRole.DELIVERY_MANAGER) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        authorizeDeliveryAccess(delivery, userId, role);
+    }
+
+    /**
+     * 배송 경로 접근 범위 검증.
+     *  - MASTER: 통과
+     *  - HUB_MANAGER: userId의 담당 허브 ∈ {route origin/dest hub}
+     *  - DELIVERY_MANAGER: 해당 경로의 hubDeliveryManagerId == userId 인 경우만
+     *  - SUPPLIER_MANAGER: 접근 불가
+     */
+    private void authorizeRouteAccess(DeliveryRoute route, UUID userId, UserRole role) {
+        switch (role) {
+            case MASTER -> {
+            }
+            case HUB_MANAGER -> {
+                ApiResponse<UserInfoResponse> userResponse = userClient.getUser(userId);
+                if (!userResponse.isSuccess()) {
+                    throw new BusinessException(ErrorCode.FEIGN_CLIENT_ERROR, "Delivery -> User 조회 실패");
+                }
+
+                UUID managerHubId = userResponse.getData().getHubId();
+                if (managerHubId == null
+                        || (!managerHubId.equals(route.getOriginHubId()) && !managerHubId.equals(route.getDestHubId()))) {
+                    throw new BusinessException(DeliveryErrorCode.FORBIDDEN_DELIVERY_SCOPE);
+                }
+            }
+            case DELIVERY_MANAGER -> {
+                if (!userId.equals(route.getHubDeliveryManagerId())) {
+                    throw new BusinessException(DeliveryErrorCode.FORBIDDEN_DELIVERY_SCOPE);
+                }
+            }
+            case SUPPLIER_MANAGER -> throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
     }
 
