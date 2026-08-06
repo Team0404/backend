@@ -23,6 +23,7 @@ import com.sparta.delivery.repository.DeliveryManagerRepository;
 import com.sparta.delivery.repository.DeliveryRepository;
 import com.sparta.delivery.repository.DeliveryRouteRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -59,7 +60,6 @@ public class DeliveryService {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
 
-        // TODO 동시성 고려
         if(deliveryRepository.existsByOrderId(request.getOrderId())){
             throw new BusinessException(DeliveryErrorCode.DELIVERY_ALREADY_EXISTS);
         }
@@ -76,8 +76,13 @@ public class DeliveryService {
                 .companyDeliveryManagerId(assignedId)
                 .build();
 
-        Delivery savedDelivery = deliveryRepository.save(delivery);
-
+        // TODO 동시성 고려
+        Delivery savedDelivery;
+        try {
+            savedDelivery = deliveryRepository.saveAndFlush(delivery);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(DeliveryErrorCode.DELIVERY_ALREADY_EXISTS);
+        }
         // TODO: HubClient로 origin→dest 경로 조회 / 구간 수 만큼 DeliveryRoute 생성
 //        ApiResponse<List<HubRouteResponseDto>> routeOriginToDest = hubClient.getRouteOriginToDest();
 //        if(!routeOriginToDest.isSuccess()) {
