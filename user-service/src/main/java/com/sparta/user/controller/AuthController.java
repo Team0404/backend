@@ -1,11 +1,15 @@
 package com.sparta.user.controller;
 
+import com.sparta.common.dto.UserInfoResponse;
 import com.sparta.common.response.ApiResponse;
+import com.sparta.common.security.CurrentUser;
+import com.sparta.common.security.UserPrincipal;
 import com.sparta.user.dto.LoginRequest;
 import com.sparta.user.dto.LoginResponse;
 import com.sparta.user.dto.SignupRequest;
 import com.sparta.user.dto.SignupResponse;
 import com.sparta.user.service.AuthService;
+import com.sparta.user.service.UserService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -14,6 +18,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final UserService userService;
 
     @Operation(
         summary = "회원가입 요청",
@@ -66,5 +72,11 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success("로그인에 성공했습니다.", response));
+    }
+
+    @Operation(summary = "내 정보 조회", description = "로그인된 사용자 본인의 정보를 조회합니다.")
+    @GetMapping("/me")
+    public ApiResponse<UserInfoResponse> me(@CurrentUser UserPrincipal principal) {
+        return ApiResponse.success(userService.getUserInfo(principal.getUserId()));
     }
 }

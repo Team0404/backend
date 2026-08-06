@@ -24,13 +24,13 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     private final JwtTokenProvider jwtTokenProvider;
 
-    // 인증 없이 통과할 경로 (user-service의 로그인/회원가입 + 공통 엔드포인트)
+    // 인증 없이 통과할 공개 경로 (회원가입/로그인/토큰재발급 + actuator)
+    // 그 외 /api/v1/auth/** (me, users, approve 등)는 인증 필요
     private static final List<String> WHITELIST = List.of(
-            "/api/v1/auth/",
-            "/api/v1/users/signup",
-            "/actuator/",
-            "/swagger-ui/",
-            "/v3/api-docs/"
+            "/api/v1/auth/signup",
+            "/api/v1/auth/login",
+            "/api/v1/auth/refresh",
+            "/actuator/"
     );
 
     @Override
@@ -49,11 +49,15 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         try {
             Claims claims = jwtTokenProvider.validateAndExtract(token);
             ServerWebExchange mutated = exchange.mutate()
-                    .request(r -> r
-                            .header(AuthHeaders.USER_ID, claims.getSubject())
-                            .header(AuthHeaders.USERNAME, claims.get("username", String.class))
-                            .header(AuthHeaders.USER_ROLE, claims.get("role", String.class))
-                    )
+                    .request(r -> r.headers(headers -> {
+                        // 외부 요청이 위조한 인증 헤더는 전달하지 않는다.
+                        headers.remove(AuthHeaders.USER_ID);
+                        headers.remove(AuthHeaders.USERNAME);
+                        headers.remove(AuthHeaders.USER_ROLE);
+                        headers.set(AuthHeaders.USER_ID, claims.getSubject());
+                        headers.set(AuthHeaders.USERNAME, claims.get("username", String.class));
+                        headers.set(AuthHeaders.USER_ROLE, claims.get("role", String.class));
+                    }))
                     .build();
             return chain.filter(mutated);
         } catch (Exception e) {
