@@ -1,12 +1,11 @@
 package com.sparta.delivery.domain.entity;
 
 import com.sparta.common.entity.BaseEntity;
+import com.sparta.common.exception.BusinessException;
+import com.sparta.common.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.*;
-//import lombok.Value;
 
-
-import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -46,4 +45,32 @@ public class Delivery extends BaseEntity {
     // 업체 -> 허브 / 허브 -> 업체만 담당하는 UserId
     @Column(name = "company_delivery_manager_id")
     private UUID companyDeliveryManagerId;
+
+    public void update(
+            String status,
+            String deliveryAddress,
+            String recipientName,
+            String recipientSlackId,
+            UUID companyDeliveryManagerId
+    ){
+        if(!status.isBlank()){
+            try {
+                this.status = DeliveryStatusEnum.valueOf(status); // 대소문자 구분 방지
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "유효하지않은 Status 입니다.");
+            }
+        }
+        if(!deliveryAddress.isBlank()){
+            this.deliveryAddress = deliveryAddress;
+        }
+        if(!recipientName.isBlank()){
+            this.recipientName = recipientName;
+        }
+        if(!recipientSlackId.isBlank()){
+            this.recipientSlackId = recipientSlackId;
+        }
+        if(companyDeliveryManagerId != null){
+            this.companyDeliveryManagerId = companyDeliveryManagerId;
+        }
+    }
 }

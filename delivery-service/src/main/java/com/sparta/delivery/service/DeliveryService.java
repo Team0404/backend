@@ -5,6 +5,8 @@ import com.sparta.common.entity.UserRole;
 import com.sparta.common.exception.BusinessException;
 import com.sparta.common.exception.ErrorCode;
 import com.sparta.common.response.ApiResponse;
+import com.sparta.common.response.PageResponse;
+import com.sparta.common.util.PageableUtil;
 import com.sparta.delivery.client.HubClient;
 import com.sparta.delivery.client.OrderClient;
 import com.sparta.delivery.client.UserClient;
@@ -21,6 +23,7 @@ import com.sparta.delivery.repository.DeliveryManagerRepository;
 import com.sparta.delivery.repository.DeliveryRepository;
 import com.sparta.delivery.repository.DeliveryRouteRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.error.Error;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -127,7 +130,7 @@ public class DeliveryService {
     }
 
     @Transactional(readOnly = true)
-    public ApiResponse<DeliverySearchResponseDto> searchDelivery(
+    public PageResponse<DeliverySearchResponseDto> searchDelivery(
             String status, UUID destHubId, String recipientName, Pageable pageable, UUID userId, UserRole role) {
         throw new UnsupportedOperationException("TODO");
     }
@@ -135,7 +138,19 @@ public class DeliveryService {
     @Transactional
     public ApiResponse<DeliveryUpdateResponseDto> updateDelivery(
             UUID deliveryId, DeliveryUpdateRequestDto request, UUID userId, UserRole role) {
-        throw new UnsupportedOperationException("TODO");
+        Delivery delivery = deliveryRepository.findByDeliveryIdAndDeletedAtIsNotNull(deliveryId).orElseThrow(
+                () -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND)
+        );
+        authorizeDeliveryAccess(delivery, userId, role);
+        delivery.update(
+                request.getStatus(), request.getDeliveryAddress(),
+                request.getRecipientName(), request.getRecipientSlackId(),
+                request.getCompanyDeliveryManagerId()
+                );
+        return ApiResponse.success(DeliveryUpdateResponseDto.builder()
+                .deliveryId(delivery.getDeliveryId())
+                .status(delivery.getStatus())
+                .build());
     }
 
     @Transactional
