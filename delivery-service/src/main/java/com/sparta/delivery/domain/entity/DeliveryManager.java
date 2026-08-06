@@ -26,15 +26,24 @@ public class DeliveryManager extends BaseEntity {
 
     @Id
     @Column(name = "user_id")
-    public UUID userId;
+    private UUID userId;
 
+    /**
+     * 배송 담당자 타입.
+     *  - HUB     : 허브 간 이동 담당 (전체 풀, 소속 허브 없음 → hub_id NULL)
+     *  - COMPANY : 최종 허브 → 수령 업체 이동 담당 (허브별 풀 → hub_id 필수)
+     */
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
-    public DeliveryManagerType type;
+    private DeliveryManagerType type;
 
     @Column(name = "hub_id")
-    public UUID hubId;
+    private UUID hubId;
 
     @Column(name = "sequence", nullable = false)
-    public Integer sequence;
+    private Integer sequence;
+
+    // 허브 ID 혹은 업체 ID 혹은 NULL
+    @Column(name = "last_assigned_at")
+    private Integer lastAssignedAt;
 }

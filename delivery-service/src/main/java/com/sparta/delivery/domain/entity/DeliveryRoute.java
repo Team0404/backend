@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
+@Table(name = "p_delivery_routes")
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,7 +20,7 @@ public class DeliveryRoute extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    public UUID deliveryRouteId;
+    public UUID Id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "delivery_id")
@@ -32,24 +33,23 @@ public class DeliveryRoute extends BaseEntity {
     public UUID originHubId;
 
     @Column(name = "dest_hub_id", nullable = false)
-    public UUID destHub_id;
+    public UUID destHubId;
 
-    // 테이블 명세대로 한 것인데, 거리를 굳이 BD를 써야하나?
     @Column(name = "expected_distance_km")
-    public BigDecimal expected_distance_km;
+    public BigDecimal expectedDistanceKm;
     @Column(name = "expected_duration_min")
-    public Integer expected_duration_min;
+    public Integer expectedDurationMin;
 
-    // 테이블 명세대로 한 것인데, 거리를 굳이 BD를 써야하나?
     @Column(name = "actual_distance_km")
-    public BigDecimal actual_distance_km;
+    public BigDecimal actualDistanceKm;
     @Column(name = "actual_duration_min")
-    public Integer actual_duration_min;
+    public Integer actualDurationMin;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
+    @Builder.Default
     public DeliveryRouteStatusEnum status = DeliveryRouteStatusEnum.HUB_MOVE_WAIT;
 
     @Column(name = "hub_delivery_manager_id")
-    public Long hub_delivery_manager_id;
+    public UUID hubDeliveryManagerId;
 }
