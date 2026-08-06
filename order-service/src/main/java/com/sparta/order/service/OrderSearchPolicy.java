@@ -1,6 +1,5 @@
 package com.sparta.order.service;
 
-import com.sparta.common.entity.UserRole;
 import com.sparta.common.util.PageableUtil;
 import com.sparta.order.dto.request.OrderSearchRequest;
 import com.sparta.order.repository.query.OrderSearchCriteria;
@@ -9,7 +8,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import java.util.Set;
-import java.util.UUID;
 
 public final class OrderSearchPolicy {
 
@@ -22,16 +20,16 @@ public final class OrderSearchPolicy {
 
     public static OrderSearchCriteria toCriteria(
             OrderSearchRequest request,
-            UUID requestUserId,
-            UUID requestHubId,
-            UserRole userRole
+            OrderServiceContext context
     ) {
         return new OrderSearchCriteria(
                 request.companyId(),
                 request.status(),
-                requestUserId,
-                requestHubId,
-                userRole
+                context.requestUserId(),
+                context.requestHubId(),
+                context.requestCompanyId(),
+                context.requestDeliveryManagerId(),
+                context.userRole()
         );
     }
 
