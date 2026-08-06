@@ -20,6 +20,7 @@ import com.sparta.order.dto.response.OrderResponse;
 import com.sparta.order.entity.Order;
 import com.sparta.order.entity.OrderItem;
 import com.sparta.order.entity.OrderStatus;
+import com.sparta.order.exception.OrderErrorCode;
 import com.sparta.order.repository.OrderRepository;
 import com.sparta.order.repository.query.OrderSearchCriteria;
 import lombok.RequiredArgsConstructor;
@@ -206,7 +207,7 @@ public class OrderServiceImpl implements OrderService {
 
     private void validateStock(ProductResponse product, Integer quantity) {
         if (product.stockQuantity() == null || product.stockQuantity() < quantity.longValue()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "재고가 부족합니다.");
+            throw new BusinessException(OrderErrorCode.INSUFFICIENT_STOCK);
         }
     }
 
@@ -222,20 +223,20 @@ public class OrderServiceImpl implements OrderService {
         );
 
         return orderRepository.findDetailById(criteria, orderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "접근 가능한 주문을 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(OrderErrorCode.ACCESSIBLE_ORDER_NOT_FOUND));
     }
 
     private void validateCreatePermission(UserRole userRole) {
         if (userRole != UserRole.MASTER
                 && userRole != UserRole.HUB_MANAGER
                 && userRole != UserRole.SUPPLIER_MANAGER) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "주문 생성 권한이 없습니다.");
+            throw new BusinessException(OrderErrorCode.FORBIDDEN_CREATE_ORDER);
         }
     }
 
     private void validateReadPermission(UserRole userRole) {
         if (userRole == null) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "주문 조회 권한이 없습니다.");
+            throw new BusinessException(OrderErrorCode.FORBIDDEN_READ_ORDER);
         }
     }
 
@@ -243,13 +244,13 @@ public class OrderServiceImpl implements OrderService {
         if (userRole != UserRole.MASTER
                 && userRole != UserRole.HUB_MANAGER
                 && userRole != UserRole.SUPPLIER_MANAGER) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "주문 수정 권한이 없습니다.");
+            throw new BusinessException(OrderErrorCode.FORBIDDEN_UPDATE_ORDER);
         }
     }
 
     private void validateStatusUpdatePermission(UserRole userRole) {
         if (userRole != UserRole.MASTER && userRole != UserRole.HUB_MANAGER) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "주문 상태 변경 권한이 없습니다.");
+            throw new BusinessException(OrderErrorCode.FORBIDDEN_UPDATE_ORDER_STATUS);
         }
     }
 
@@ -257,34 +258,31 @@ public class OrderServiceImpl implements OrderService {
         if (userRole != UserRole.MASTER
                 && userRole != UserRole.HUB_MANAGER
                 && userRole != UserRole.SUPPLIER_MANAGER) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "주문 취소 권한이 없습니다.");
+            throw new BusinessException(OrderErrorCode.FORBIDDEN_CANCEL_ORDER);
         }
     }
 
     private void validateDeletePermission(UserRole userRole) {
         if (userRole != UserRole.MASTER && userRole != UserRole.HUB_MANAGER) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "주문 삭제 권한이 없습니다.");
+            throw new BusinessException(OrderErrorCode.FORBIDDEN_DELETE_ORDER);
         }
     }
 
     private void validateUpdatableStatus(Order order) {
         if (order.getStatus() == OrderStatus.CANCELLED || order.getStatus() == OrderStatus.COMPLETED) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "현재 상태의 주문은 수정할 수 없습니다.");
+            throw new BusinessException(OrderErrorCode.ORDER_NOT_UPDATABLE);
         }
     }
 
     private void validateStatusChange(Order order, OrderStatus nextStatus) {
         if (nextStatus == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "변경할 주문 상태가 필요합니다.");
+            throw new BusinessException(OrderErrorCode.ORDER_STATUS_REQUIRED);
         }
         if (order.getStatus() == OrderStatus.CANCELLED || order.getStatus() == OrderStatus.COMPLETED) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "현재 상태의 주문은 상태를 변경할 수 없습니다.");
+            throw new BusinessException(OrderErrorCode.ORDER_STATUS_NOT_CHANGEABLE);
         }
         if (!isAllowedTransition(order.getStatus(), nextStatus)) {
-            throw new BusinessException(
-                    ErrorCode.INVALID_INPUT,
-                    "허용되지 않는 주문 상태 변경입니다. " + order.getStatus() + " -> " + nextStatus
-            );
+            throw new BusinessException(OrderErrorCode.INVALID_ORDER_STATUS_TRANSITION);
         }
     }
 
@@ -292,7 +290,7 @@ public class OrderServiceImpl implements OrderService {
         if (order.getStatus() == OrderStatus.SHIPPING
                 || order.getStatus() == OrderStatus.COMPLETED
                 || order.getStatus() == OrderStatus.CANCELLED) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "현재 상태의 주문은 취소할 수 없습니다.");
+            throw new BusinessException(OrderErrorCode.ORDER_NOT_CANCELABLE);
         }
     }
 
@@ -300,7 +298,7 @@ public class OrderServiceImpl implements OrderService {
         if (context.userRole() == UserRole.SUPPLIER_MANAGER
                 && context.requestCompanyId() != null
                 && !context.requestCompanyId().equals(companyId)) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED, "본인 업체 주문만 생성할 수 있습니다.");
+            throw new BusinessException(OrderErrorCode.FORBIDDEN_COMPANY_SCOPE);
         }
     }
 
