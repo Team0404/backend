@@ -7,6 +7,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 @FeignClient(name = "hub-service")
 public interface HubClient {
 
-    @GetMapping("/api/hubs/{hubId}")
+    @GetMapping("/api/v1/hubs/{hubId}")
     HubResponse getHub(@PathVariable("hubId") String hubId);
 }
