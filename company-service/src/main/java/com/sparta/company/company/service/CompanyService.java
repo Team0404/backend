@@ -1,6 +1,8 @@
 package com.sparta.company.company.service;
 
+import com.sparta.common.entity.UserRole;
 import com.sparta.common.exception.BusinessException;
+import com.sparta.common.security.UserPrincipal;
 import com.sparta.company.client.hub.HubClient;
 import com.sparta.company.client.user.UserClient;
 import com.sparta.company.client.user.UserResponse;
@@ -13,14 +15,14 @@ import com.sparta.company.company.exception.CompanyErrorCode;
 import com.sparta.company.company.repository.CompanyQueryRepository;
 import com.sparta.company.company.repository.CompanyRepository;
 import com.sparta.company.product.repository.ProductRepository;
-import com.sparta.company.security.AuthUser;
 import feign.FeignException;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -33,16 +35,16 @@ public class CompanyService {
     private final UserClient userClient;
 
     @Transactional
-    public CompanyResponse create(CompanyCreateRequest request, AuthUser authUser) {
+    public CompanyResponse create(CompanyCreateRequest request, UserPrincipal userPrincipal) {
 
         validateHubExists(request.hubId());
 
-        if (authUser.isHubManager()) {
-            UUID myHubId = getScopeHubId(authUser);
+        if (userPrincipal.hasAnyRole(UserRole.HUB_MANAGER)) {
+            UUID myHubId = getScopeHubId(userPrincipal);
             if (!myHubId.equals(request.hubId())) {
                 throw new BusinessException(CompanyErrorCode.FORBIDDEN_HUB_SCOPE);
             }
-        } else if (!authUser.isMaster()) {
+        } else if (!userPrincipal.hasAnyRole(UserRole.MASTER)) {
             throw new BusinessException(CompanyErrorCode.FORBIDDEN_COMPANY_SCOPE);
         }
 
@@ -57,11 +59,11 @@ public class CompanyService {
     }
 
     @Transactional
-    public CompanyResponse update(UUID companyId, CompanyUpdateRequest request, AuthUser authUser) {
+    public CompanyResponse update(UUID companyId, CompanyUpdateRequest request, UserPrincipal userPrincipal) {
 
         Company company = getActiveCompanyOrThrow(companyId);
 
-        validateUpdatePermission(company, authUser);
+        validateUpdatePermission(company, userPrincipal);
 
         if (request.hubId() != null && !request.hubId().equals(company.getHubId())) {
             validateHubExists(request.hubId());
@@ -73,17 +75,16 @@ public class CompanyService {
     }
 
     @Transactional
-    public void delete(UUID companyId, AuthUser authUser) {
+    public void delete(UUID companyId, UserPrincipal userPrincipal) {
 
         Company company = getActiveCompanyOrThrow(companyId);
 
-        validateDeletePermission(company, authUser);
+        validateDeletePermission(company, userPrincipal);
 
-        company.softDelete(authUser.userId());
+        company.softDelete(userPrincipal.getUserId());
 
-        // 업체가 삭제되면 소속된 활성 상품도 함께 논리 삭제 처리
         productRepository.findAllByCompany_IdAndDeletedAtIsNull(companyId)
-                .forEach(product -> product.softDelete(authUser.userId()));
+                .forEach(product -> product.softDelete(userPrincipal.getUserId()));
     }
 
     public CompanyResponse getOne(UUID companyId) {
@@ -95,9 +96,9 @@ public class CompanyService {
                 .map(CompanyResponse::from);
     }
 
-
-    // 내부 검증 로직 ------------------------------------------------------------------
-
+    // ----------------------------------------------------------------
+    // 내부 검증 로직
+    // ----------------------------------------------------------------
 
     private Company getActiveCompanyOrThrow(UUID companyId) {
         return companyRepository.findByIdAndDeletedAtIsNull(companyId)
@@ -112,19 +113,19 @@ public class CompanyService {
         }
     }
 
-    private void validateUpdatePermission(Company company, AuthUser authUser) {
-        if (authUser.isMaster()) {
+    private void validateUpdatePermission(Company company, UserPrincipal userPrincipal) {
+        if (userPrincipal.hasAnyRole(UserRole.MASTER)) {
             return;
         }
-        if (authUser.isHubManager()) {
-            UUID myHubId = getScopeHubId(authUser);
+        if (userPrincipal.hasAnyRole(UserRole.HUB_MANAGER)) {
+            UUID myHubId = getScopeHubId(userPrincipal);
             if (myHubId.equals(company.getHubId())) {
                 return;
             }
             throw new BusinessException(CompanyErrorCode.FORBIDDEN_HUB_SCOPE);
         }
-        if (authUser.isSupplierManager()) {
-            UUID myCompanyId = getScopeCompanyId(authUser);
+        if (userPrincipal.hasAnyRole(UserRole.SUPPLIER_MANAGER)) {
+            UUID myCompanyId = getScopeCompanyId(userPrincipal);
             if (myCompanyId.equals(company.getId())) {
                 return;
             }
@@ -133,12 +134,12 @@ public class CompanyService {
         throw new BusinessException(CompanyErrorCode.FORBIDDEN_COMPANY_SCOPE);
     }
 
-    private void validateDeletePermission(Company company, AuthUser authUser) {
-        if (authUser.isMaster()) {
+    private void validateDeletePermission(Company company, UserPrincipal userPrincipal) {
+        if (userPrincipal.hasAnyRole(UserRole.MASTER)) {
             return;
         }
-        if (authUser.isHubManager()) {
-            UUID myHubId = getScopeHubId(authUser);
+        if (userPrincipal.hasAnyRole(UserRole.HUB_MANAGER)) {
+            UUID myHubId = getScopeHubId(userPrincipal);
             if (myHubId.equals(company.getHubId())) {
                 return;
             }
@@ -146,16 +147,16 @@ public class CompanyService {
         throw new BusinessException(CompanyErrorCode.FORBIDDEN_HUB_SCOPE);
     }
 
-    private UUID getScopeHubId(AuthUser authUser) {
-        UserResponse user = userClient.getUser(authUser.userId().toString());
+    private UUID getScopeHubId(UserPrincipal userPrincipal) {
+        UserResponse user = userClient.getUser(userPrincipal.getUserId().toString());
         if (user.hubId() == null) {
             throw new BusinessException(CompanyErrorCode.FORBIDDEN_HUB_SCOPE);
         }
         return user.hubId();
     }
 
-    private UUID getScopeCompanyId(AuthUser authUser) {
-        UserResponse user = userClient.getUser(authUser.userId().toString());
+    private UUID getScopeCompanyId(UserPrincipal userPrincipal) {
+        UserResponse user = userClient.getUser(userPrincipal.getUserId().toString());
         if (user.companyId() == null) {
             throw new BusinessException(CompanyErrorCode.FORBIDDEN_COMPANY_SCOPE);
         }

@@ -2,6 +2,7 @@ package com.sparta.company.company.controller;
 
 import com.sparta.common.response.ApiResponse;
 import com.sparta.common.response.PageResponse;
+import com.sparta.common.security.UserPrincipal;
 import com.sparta.common.util.PageableUtil;
 import com.sparta.company.company.dto.request.CompanyCreateRequest;
 import com.sparta.company.company.dto.request.CompanySearchCondition;
@@ -9,8 +10,7 @@ import com.sparta.company.company.dto.request.CompanyUpdateRequest;
 import com.sparta.company.company.dto.response.CompanyResponse;
 import com.sparta.company.company.entity.CompanyType;
 import com.sparta.company.company.service.CompanyService;
-import com.sparta.company.security.AuthUser;
-import com.sparta.company.security.CurrentUser;
+import com.sparta.common.security.CurrentUser;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -40,21 +40,21 @@ public class CompanyController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<CompanyResponse> create(@Valid @RequestBody CompanyCreateRequest request,
-                                               @CurrentUser AuthUser authUser) {
-        return ApiResponse.success(companyService.create(request, authUser));
+                                               @CurrentUser UserPrincipal userPrincipal) {
+        return ApiResponse.success(companyService.create(request, userPrincipal));
     }
 
     @PatchMapping("/{companyId}")
     public ApiResponse<CompanyResponse> update(@PathVariable UUID companyId,
                                                @RequestBody CompanyUpdateRequest request,
-                                               @CurrentUser AuthUser authUser) {
-        return ApiResponse.success(companyService.update(companyId, request, authUser));
+                                               @CurrentUser UserPrincipal userPrincipal) {
+        return ApiResponse.success(companyService.update(companyId, request, userPrincipal));
     }
 
     @DeleteMapping("/{companyId}")
     public ApiResponse<Void> delete(@PathVariable UUID companyId,
-                                    @CurrentUser AuthUser authUser) {
-        companyService.delete(companyId, authUser);
+                                    @CurrentUser UserPrincipal userPrincipal) {
+        companyService.delete(companyId, userPrincipal);
         return ApiResponse.success(null);
     }
 
