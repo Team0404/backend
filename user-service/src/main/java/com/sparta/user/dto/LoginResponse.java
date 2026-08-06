@@ -16,6 +16,9 @@ public class LoginResponse {
     @Schema(description = "JWT Access Token", example = "eyJhbGciOiJIUzI1NiJ9...")
     private final String accessToken;
 
+    @Schema(description = "JWT Refresh Token", example = "eyJhbGciOiJIUzI1NiJ9...")
+    private final String refreshToken;
+
     @Schema(description = "사용자 ID", example = "550e8400-e29b-41d4-a716-446655440000")
     private final UUID userId;
 

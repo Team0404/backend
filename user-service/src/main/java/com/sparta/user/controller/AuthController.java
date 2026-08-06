@@ -7,9 +7,11 @@ import com.sparta.common.security.CurrentUser;
 import com.sparta.common.security.UserPrincipal;
 import com.sparta.user.dto.LoginRequest;
 import com.sparta.user.dto.LoginResponse;
+import com.sparta.user.dto.RefreshTokenRequest;
 import com.sparta.user.dto.RejectUserRequest;
 import com.sparta.user.dto.SignupRequest;
 import com.sparta.user.dto.SignupResponse;
+import com.sparta.user.dto.TokenRefreshResponse;
 import com.sparta.user.dto.UserManagementResponse;
 import com.sparta.user.service.AuthService;
 import com.sparta.user.service.UserService;
@@ -17,6 +19,7 @@ import com.sparta.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springdoc.core.annotations.ParameterObject;
 import jakarta.validation.Valid;
@@ -62,6 +65,7 @@ public class AuthController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "입력값 검증 실패"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "중복된 username")
     })
+    @SecurityRequirements
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
         SignupResponse response = authService.signup(request);
@@ -74,7 +78,7 @@ public class AuthController {
         description = """
                     승인(APPROVED) 상태의 사용자만 로그인할 수 있습니다.
                     
-                    로그인 성공 시 JWT Access Token을 발급합니다.
+                    로그인 성공 시 JWT Access Token과 Refresh Token을 발급합니다.
                     """
     )
     @ApiResponses({
@@ -82,10 +86,30 @@ public class AuthController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "아이디 또는 비밀번호 불일치"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "승인되지 않은 사용자")
     })
+    @SecurityRequirements
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success("로그인에 성공했습니다.", response));
+    }
+
+    @Operation(summary = "토큰 재발급", description = "유효한 Refresh Token을 검증하고 Token Rotation을 적용합니다.")
+    @SecurityRequirements
+    @PostMapping("/refresh")
+    public ApiResponse<TokenRefreshResponse> refresh(
+            @Valid @RequestBody RefreshTokenRequest request
+    ) {
+        return ApiResponse.success("토큰을 재발급했습니다.", authService.refresh(request));
+    }
+
+    @Operation(summary = "로그아웃", description = "Redis에 저장된 Refresh Token을 폐기합니다.")
+    @SecurityRequirements
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(
+            @Valid @RequestBody RefreshTokenRequest request
+    ) {
+        authService.logout(request);
+        return ApiResponse.success("로그아웃했습니다.", null);
     }
 
     @Operation(summary = "내 정보 조회", description = "로그인된 사용자 본인의 정보를 조회합니다.")

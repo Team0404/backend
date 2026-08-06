@@ -8,6 +8,7 @@ import com.sparta.common.entity.UserRole;
 import com.sparta.common.exception.GlobalExceptionHandler;
 import com.sparta.common.response.PageResponse;
 import com.sparta.user.dto.UserManagementResponse;
+import com.sparta.user.dto.TokenRefreshResponse;
 import com.sparta.user.entity.ApprovalStatus;
 import com.sparta.user.service.AuthService;
 import com.sparta.user.service.UserService;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -107,6 +109,43 @@ class AuthControllerSecurityTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void refreshApiReturnsRotatedTokenPair() throws Exception {
+        given(authService.refresh(any())).willReturn(TokenRefreshResponse.builder()
+                .accessToken("new-access-token")
+                .refreshToken("new-refresh-token")
+                .build());
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new RefreshTokenRequestBody("current-refresh-token"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
+                .andExpect(jsonPath("$.data.refreshToken").value("new-refresh-token"));
+    }
+
+    @Test
+    void logoutApiRevokesRefreshToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new RefreshTokenRequestBody("refresh-token"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(authService).logout(any());
+    }
+
+    @Test
+    void refreshApiRequiresRefreshToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new RefreshTokenRequestBody(""))))
+                .andExpect(status().isBadRequest());
+    }
+
     private org.springframework.http.HttpHeaders authenticationHeaders(UserRole role) {
         org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
         headers.add(AuthHeaders.USER_ID, UUID.randomUUID().toString());
@@ -116,5 +155,8 @@ class AuthControllerSecurityTest {
     }
 
     private record RejectRequestBody(String reason) {
+    }
+
+    private record RefreshTokenRequestBody(String refreshToken) {
     }
 }
