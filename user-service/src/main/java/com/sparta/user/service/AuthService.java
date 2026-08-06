@@ -2,6 +2,7 @@ package com.sparta.user.service;
 
 import com.sparta.common.exception.BusinessException;
 import com.sparta.common.exception.ErrorCode;
+import com.sparta.common.entity.UserRole;
 import com.sparta.user.dto.LoginRequest;
 import com.sparta.user.dto.LoginResponse;
 import com.sparta.user.dto.SignupRequest;
@@ -27,6 +28,8 @@ public class AuthService {
      */
     @Transactional
     public SignupResponse signup(SignupRequest request) {
+        validateSignupPolicy(request);
+
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "이미 사용 중인 아이디입니다.");
         }
@@ -54,13 +57,18 @@ public class AuthService {
      */
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByUsername(request.getUsername())
+        User user = userRepository.findByUsernameAndDeletedAtIsNull(request.getUsername())
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new BusinessException(
                     ErrorCode.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다.");
+        }
+
+        if (!user.isApproved()) {
+            throw new BusinessException(
+                    ErrorCode.ACCESS_DENIED, "승인된 사용자만 로그인할 수 있습니다.");
         }
 
         String accessToken = jwtTokenProvider.createAccessToken(
@@ -71,5 +79,36 @@ public class AuthService {
                 .userId(user.getUserId())
                 .role(user.getRole())
                 .build();
+    }
+
+    private void validateSignupPolicy(SignupRequest request) {
+        UserRole role = request.getRole();
+        if (role == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "역할은 필수입니다.");
+        }
+
+        switch (role) {
+            case MASTER -> throw new BusinessException(
+                    ErrorCode.INVALID_INPUT, "MASTER 역할은 공개 회원가입으로 신청할 수 없습니다.");
+            case HUB_MANAGER -> {
+                if (request.getHubId() == null || request.getCompanyId() != null) {
+                    throw new BusinessException(
+                            ErrorCode.INVALID_INPUT, "HUB_MANAGER는 hubId만 입력해야 합니다.");
+                }
+            }
+            case SUPPLIER_MANAGER -> {
+                if (request.getCompanyId() == null || request.getHubId() != null) {
+                    throw new BusinessException(
+                            ErrorCode.INVALID_INPUT, "SUPPLIER_MANAGER는 companyId만 입력해야 합니다.");
+                }
+            }
+            case DELIVERY_MANAGER -> {
+                if (request.getHubId() != null || request.getCompanyId() != null) {
+                    throw new BusinessException(
+                            ErrorCode.INVALID_INPUT,
+                            "DELIVERY_MANAGER의 소속 정보는 배송 담당자 등록 과정에서 지정해야 합니다.");
+                }
+            }
+        }
     }
 }
