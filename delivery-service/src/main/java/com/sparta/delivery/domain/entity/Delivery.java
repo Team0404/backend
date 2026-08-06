@@ -1,10 +1,11 @@
 package com.sparta.delivery.domain.entity;
 
 import com.sparta.common.entity.BaseEntity;
-import com.sparta.common.exception.BusinessException;
-import com.sparta.common.exception.ErrorCode;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 

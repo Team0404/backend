@@ -130,7 +130,7 @@ public class DeliveryService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<DeliverySummaryResponseDto> searchDelivery(
+    public ApiResponse<PageResponse<DeliverySummaryResponseDto>> searchDelivery(
             String status, UUID destHubId, String recipientName, Pageable pageable, UUID userId, UserRole role) {
         Pageable normalized = PageableUtil.normalize(pageable);
 
@@ -165,13 +165,13 @@ public class DeliveryService {
                 statusEnum, destHubId, recipientName, scopeHubId, scopeManagerId, scopeRouteDeliveryIds, normalized
         );
 
-        return PageResponse.from(page.map(d -> DeliverySummaryResponseDto.builder()
+        return ApiResponse.success(PageResponse.from(page.map(d -> DeliverySummaryResponseDto.builder()
                 .deliveryId(d.getDeliveryId())
                 .orderId(d.getOrderId())
                 .status(d.getStatus())
                 .destHubId(d.getDestHubId())
                 .recipientName(d.getRecipientName())
-                .build()));
+                .build())));
     }
 
     @Transactional
@@ -193,12 +193,20 @@ public class DeliveryService {
     }
 
     @Transactional
-    public ApiResponse<Void> deleteDelivery(UUID deliveryId, UUID userId, UserRole role) {
+    public ApiResponse<Void> deleteDelivery(UUID deliveryId, UUID userId, UserRole role, String internalCaller) {
         Delivery delivery = deliveryRepository.findById(deliveryId).orElseThrow(
                 () -> new BusinessException(DeliveryErrorCode.DELIVERY_NOT_FOUND)
         );
-        authorizeDeliveryDelete(delivery, userId, role);
+
+        boolean isOrderService = "order-service".equals(internalCaller);
+        if (!isOrderService) {
+            authorizeDeliveryDelete(delivery, userId, role);
+        }
+
         delivery.softDelete(userId);
+        deliveryRouteRepository.findAllByDeliveryOrderBySequenceAsc(delivery)
+                .forEach(route -> route.softDelete(userId));
+
         return ApiResponse.success(null);
     }
 

@@ -1,7 +1,5 @@
 package com.sparta.delivery.controller;
 
-import com.sparta.common.constant.AuthHeaders;
-import com.sparta.common.entity.UserRole;
 import com.sparta.common.response.ApiResponse;
 import com.sparta.common.security.CurrentUser;
 import com.sparta.common.security.UserPrincipal;
