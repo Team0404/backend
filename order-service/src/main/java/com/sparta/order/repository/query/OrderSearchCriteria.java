@@ -10,6 +10,8 @@ public record OrderSearchCriteria(
         OrderStatus status,
         UUID requestUserId,
         UUID requestHubId,
+        UUID requestCompanyId,
+        UUID requestDeliveryManagerId,
         UserRole userRole
 ) {
 }
