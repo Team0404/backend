@@ -10,7 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * 인증 컨텍스트와 메서드 보안은 common 모듈의 SecurityConfig가 제공한다.
  */
 @Configuration
-public class SecurityConfig {
+public class PasswordEncoderConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
