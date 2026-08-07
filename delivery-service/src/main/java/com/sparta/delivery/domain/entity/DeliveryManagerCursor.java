@@ -12,8 +12,8 @@ import java.util.UUID;
                 @UniqueConstraint(name = "uk_cursor_type_hub_id",columnNames = {"type", "hub_id"})
         }
 )
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
 @Getter
 public class DeliveryManagerCursor extends BaseEntity {

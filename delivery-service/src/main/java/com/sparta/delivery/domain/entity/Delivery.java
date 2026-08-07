@@ -1,20 +1,18 @@
 package com.sparta.delivery.domain.entity;
 
+
 import com.sparta.common.entity.BaseEntity;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.UUID;
 
-@Entity
 @Table(name = "p_deliveries")
+@Entity
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)   
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Delivery extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
