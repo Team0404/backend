@@ -36,15 +36,30 @@ class JwtTokenProviderTest {
                 .isInstanceOf(JwtException.class);
     }
 
+    @Test
+    void accessTokenWithoutIdIsRejected() {
+        JwtTokenProvider provider = new JwtTokenProvider(SECRET);
+        String token = token("ACCESS", false);
+
+        assertThatThrownBy(() -> provider.validateAndExtract(token))
+                .isInstanceOf(JwtException.class);
+    }
+
     private String token(String tokenType) {
+        return token(tokenType, true);
+    }
+
+    private String token(String tokenType, boolean includeId) {
         SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
         Date now = new Date();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(UUID.randomUUID().toString())
                 .claim("tokenType", tokenType)
                 .issuedAt(now)
-                .expiration(new Date(now.getTime() + 60_000))
-                .signWith(key)
-                .compact();
+                .expiration(new Date(now.getTime() + 60_000));
+        if (includeId) {
+            builder.id(UUID.randomUUID().toString());
+        }
+        return builder.signWith(key).compact();
     }
 }

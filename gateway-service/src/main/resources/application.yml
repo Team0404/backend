@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: gateway-service
+  data:
+    redis:
+      host: ${USER_REDIS_HOST:localhost}
+      port: ${USER_REDIS_PORT:6380}
   cloud:
     gateway:
       server:
