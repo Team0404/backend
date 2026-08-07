@@ -9,9 +9,11 @@ import com.sparta.common.response.PageResponse;
 import com.sparta.delivery.client.HubClient;
 import com.sparta.delivery.client.OrderClient;
 import com.sparta.delivery.client.UserClient;
+import com.sparta.delivery.domain.dto.request.DeliveryCancelRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryCreateRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryRouteUpdateRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryUpdateRequestDto;
+import com.sparta.delivery.domain.dto.response.DeliveryCancelResponseDto;
 import com.sparta.delivery.domain.dto.response.DeliveryRouteSearchResponseDto;
 import com.sparta.delivery.domain.dto.response.DeliverySummaryResponseDto;
 import com.sparta.delivery.domain.entity.Delivery;
@@ -20,6 +22,7 @@ import com.sparta.delivery.domain.entity.DeliveryManagerCursor;
 import com.sparta.delivery.domain.entity.DeliveryManagerType;
 import com.sparta.delivery.domain.entity.DeliveryRoute;
 import com.sparta.delivery.domain.entity.DeliveryRouteStatusEnum;
+import com.sparta.delivery.domain.entity.DeliveryStatusEnum;
 import com.sparta.delivery.exception.DeliveryErrorCode;
 import com.sparta.delivery.repository.DeliveryManagerCursorRepository;
 import com.sparta.delivery.repository.DeliveryManagerRepository;
@@ -33,6 +36,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -366,11 +370,11 @@ class DeliveryServiceTest {
         DeliveryRoute route = route(null, 0);
         when(deliveryRouteRepository.findById(routeId)).thenReturn(Optional.of(route));
 
-        DeliveryRouteUpdateRequestDto request = DeliveryRouteUpdateRequestDto.builder().status("DEST_HUB_ARRIVED").build();
+        DeliveryRouteUpdateRequestDto request = DeliveryRouteUpdateRequestDto.builder().status("HUB_MOVING").build();
 
         deliveryService.updateDeliveryRoute(routeId, request, UUID.randomUUID(), UserRole.MASTER);
 
-        assertThat(route.getStatus()).isEqualTo(DeliveryRouteStatusEnum.DEST_HUB_ARRIVED);
+        assertThat(route.getStatus()).isEqualTo(DeliveryRouteStatusEnum.HUB_MOVING);
     }
 
     @Test
@@ -418,14 +422,150 @@ class DeliveryServiceTest {
                 .Id(routeId).sequence(0)
                 .originHubId(UUID.randomUUID()).destHubId(UUID.randomUUID())
                 .hubDeliveryManagerId(hubDeliveryManagerId)
+                .status(DeliveryRouteStatusEnum.HUB_MOVING)
                 .build();
         when(deliveryRouteRepository.findById(routeId)).thenReturn(Optional.of(route));
 
-        DeliveryRouteUpdateRequestDto request = DeliveryRouteUpdateRequestDto.builder().status("OUT_FOR_DELIVERY").build();
+        DeliveryRouteUpdateRequestDto request = DeliveryRouteUpdateRequestDto.builder().status("DEST_HUB_ARRIVED").build();
 
         deliveryService.updateDeliveryRoute(routeId, request, hubDeliveryManagerId, UserRole.DELIVERY_MANAGER);
 
-        assertThat(route.getStatus()).isEqualTo(DeliveryRouteStatusEnum.OUT_FOR_DELIVERY);
+        assertThat(route.getStatus()).isEqualTo(DeliveryRouteStatusEnum.DEST_HUB_ARRIVED);
+    }
+
+    // ── 배송 취소(보상 트랜잭션) ──────────────────────────────
+
+    @Test
+    void cancelDelivery_internalCall_cancelsOnlyNotStartedRoutes() {
+        Delivery delivery = cancelableDelivery(DeliveryStatusEnum.HUB_MOVING);
+        DeliveryRoute arrived = routeWithStatus(delivery, 0, DeliveryRouteStatusEnum.DEST_HUB_ARRIVED);
+        DeliveryRoute moving = routeWithStatus(delivery, 1, DeliveryRouteStatusEnum.HUB_MOVING);
+        DeliveryRoute waiting = routeWithStatus(delivery, 2, DeliveryRouteStatusEnum.HUB_MOVE_WAIT);
+
+        when(deliveryRepository.findByOrderIdAndDeletedAtIsNull(delivery.getOrderId()))
+                .thenReturn(Optional.of(delivery));
+        when(deliveryRouteRepository.findAllByDeliveryOrderBySequenceAsc(delivery))
+                .thenReturn(List.of(arrived, moving, waiting));
+
+        ApiResponse<DeliveryCancelResponseDto> response = deliveryService.cancelDelivery(
+                cancelRequest(delivery.getOrderId()), null, null, "order-service");
+
+        assertThat(delivery.getStatus()).isEqualTo(DeliveryStatusEnum.CANCELLED);
+        assertThat(delivery.getCancelReason()).isEqualTo("주문 취소");
+        assertThat(delivery.getCancelledAt()).isNotNull();
+        assertThat(delivery.getCompanyDeliveryManagerId()).isNull();
+
+        // 이미 완료됐거나 이동 중인 구간은 되돌리지 않는다.
+        assertThat(arrived.getStatus()).isEqualTo(DeliveryRouteStatusEnum.DEST_HUB_ARRIVED);
+        assertThat(moving.getStatus()).isEqualTo(DeliveryRouteStatusEnum.HUB_MOVING);
+        assertThat(waiting.getStatus()).isEqualTo(DeliveryRouteStatusEnum.CANCELLED);
+
+        assertThat(response.getData().getCancelledRouteCount()).isEqualTo(1);
+        assertThat(response.getData().getPreservedRouteCount()).isEqualTo(2);
+    }
+
+    @Test
+    void cancelDelivery_masterAllowed() {
+        Delivery delivery = cancelableDelivery(DeliveryStatusEnum.HUB_WAIT);
+        when(deliveryRepository.findByOrderIdAndDeletedAtIsNull(delivery.getOrderId()))
+                .thenReturn(Optional.of(delivery));
+        when(deliveryRouteRepository.findAllByDeliveryOrderBySequenceAsc(delivery))
+                .thenReturn(List.of());
+
+        deliveryService.cancelDelivery(cancelRequest(delivery.getOrderId()), UUID.randomUUID(), UserRole.MASTER, null);
+
+        assertThat(delivery.getStatus()).isEqualTo(DeliveryStatusEnum.CANCELLED);
+    }
+
+    @Test
+    void cancelDelivery_deniedForNonMasterNonInternal() {
+        assertThatThrownBy(() -> deliveryService.cancelDelivery(
+                cancelRequest(UUID.randomUUID()), UUID.randomUUID(), UserRole.HUB_MANAGER, null))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    void cancelDelivery_deniedForUnknownInternalCaller() {
+        assertThatThrownBy(() -> deliveryService.cancelDelivery(
+                cancelRequest(UUID.randomUUID()), null, null, "hub-service"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    void cancelDelivery_afterOutForDelivery_throwsInvalidTransition() {
+        Delivery delivery = cancelableDelivery(DeliveryStatusEnum.OUT_FOR_DELIVERY);
+        when(deliveryRepository.findByOrderIdAndDeletedAtIsNull(delivery.getOrderId()))
+                .thenReturn(Optional.of(delivery));
+        when(deliveryRouteRepository.findAllByDeliveryOrderBySequenceAsc(delivery))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> deliveryService.cancelDelivery(
+                cancelRequest(delivery.getOrderId()), null, null, "order-service"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(DeliveryErrorCode.INVALID_DELIVERY_STATUS_TRANSITION));
+
+        // 취소가 거부됐으므로 취소 사유/시각이 남지 않아야 한다.
+        assertThat(delivery.getCancelReason()).isNull();
+        assertThat(delivery.getCancelledAt()).isNull();
+    }
+
+    @Test
+    void cancelDelivery_alreadyCancelled_isIdempotent() {
+        Delivery delivery = cancelableDelivery(DeliveryStatusEnum.HUB_WAIT);
+        delivery.cancel("최초 취소");
+        LocalDateTime firstCancelledAt = delivery.getCancelledAt();
+
+        when(deliveryRepository.findByOrderIdAndDeletedAtIsNull(delivery.getOrderId()))
+                .thenReturn(Optional.of(delivery));
+        when(deliveryRouteRepository.findAllByDeliveryOrderBySequenceAsc(delivery))
+                .thenReturn(List.of());
+
+        ApiResponse<DeliveryCancelResponseDto> response = deliveryService.cancelDelivery(
+                cancelRequest(delivery.getOrderId()), null, null, "order-service");
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(delivery.getCancelReason()).isEqualTo("최초 취소");
+        assertThat(delivery.getCancelledAt()).isEqualTo(firstCancelledAt);
+    }
+
+    @Test
+    void cancelDelivery_deliveryNotCreated_isIdempotent() {
+        UUID orderId = UUID.randomUUID();
+        when(deliveryRepository.findByOrderIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.empty());
+
+        ApiResponse<DeliveryCancelResponseDto> response = deliveryService.cancelDelivery(
+                cancelRequest(orderId), null, null, "order-service");
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getCancelledRouteCount()).isZero();
+    }
+
+    private DeliveryCancelRequestDto cancelRequest(UUID orderId) {
+        return DeliveryCancelRequestDto.builder().orderId(orderId).reason("주문 취소").build();
+    }
+
+    private Delivery cancelableDelivery(DeliveryStatusEnum status) {
+        return Delivery.builder()
+                .deliveryId(UUID.randomUUID())
+                .orderId(UUID.randomUUID())
+                .status(status)
+                .originHubId(UUID.randomUUID())
+                .destHubId(UUID.randomUUID())
+                .deliveryAddress("부산시 사하구 낙동대로 1번길 1")
+                .recipientName("김말숙")
+                .recipientSlackId("U0123ABC")
+                .companyDeliveryManagerId(UUID.randomUUID())
+                .build();
+    }
+
+    private DeliveryRoute routeWithStatus(Delivery delivery, int sequence, DeliveryRouteStatusEnum status) {
+        return DeliveryRoute.builder()
+                .Id(UUID.randomUUID()).delivery(delivery).sequence(sequence)
+                .originHubId(UUID.randomUUID()).destHubId(UUID.randomUUID())
+                .status(status)
+                .build();
     }
 
     private DeliveryRoute route(Delivery delivery, int sequence) {

@@ -18,6 +18,9 @@ public interface DeliveryRepository extends JpaRepository<Delivery, UUID> {
 
     Optional<Delivery> findByDeliveryIdAndDeletedAtIsNull(UUID deliveryId);
 
+    /** 주문 취소 보상 트랜잭션용. */
+    Optional<Delivery> findByOrderIdAndDeletedAtIsNull(UUID orderId);
+
     /**
      * D3 검색. scopeHubId/scopeManagerId/scopeRouteDeliveryIds는 role별 조회 범위 제한용(둘 다 null이면 MASTER처럼 전체 조회).
      */

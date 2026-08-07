@@ -6,22 +6,23 @@ import com.sparta.common.exception.BusinessException;
 import com.sparta.common.exception.ErrorCode;
 import com.sparta.common.response.ApiResponse;
 import com.sparta.common.response.PageResponse;
+import com.sparta.common.security.UserPrincipal;
 import com.sparta.common.util.PageableUtil;
 import com.sparta.delivery.client.HubClient;
 import com.sparta.delivery.client.OrderClient;
 import com.sparta.delivery.client.UserClient;
-import com.sparta.delivery.client.dto.HubRouteResponseDto;
+import com.sparta.delivery.domain.dto.request.DeliveryCancelRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryCreateRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryRouteUpdateRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryUpdateRequestDto;
 import com.sparta.delivery.domain.dto.response.*;
 import com.sparta.delivery.domain.entity.*;
 import com.sparta.delivery.exception.DeliveryErrorCode;
-import com.sparta.delivery.exception.DeliveryManagerErrorCode;
 import com.sparta.delivery.repository.DeliveryManagerCursorRepository;
 import com.sparta.delivery.repository.DeliveryManagerRepository;
 import com.sparta.delivery.repository.DeliveryRepository;
 import com.sparta.delivery.repository.DeliveryRouteRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -29,8 +30,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * 배송(D1~D7) 비즈니스 로직.
@@ -47,6 +50,13 @@ public class DeliveryService {
     private final OrderClient orderClient;
     private final HubClient hubClient;
 
+    /** 내부 호출(X-Internal-Call)로 배송 생성/취소를 수행할 수 있는 서비스 목록. */
+    private static final Set<String> ALLOWED_INTERNAL_SERVICES = Set.of("order-service");
+
+    private boolean isAllowedInternalCaller(String internalCaller) {
+        return internalCaller != null && ALLOWED_INTERNAL_SERVICES.contains(internalCaller);
+    }
+
     // TODO: HubClient(허브 간 경로 조회), UserClient(허브소속/주문소유 확인) — @FeignClient interface 로 추가
 
     /**
@@ -54,9 +64,7 @@ public class DeliveryService {
      */
     @Transactional
     public ApiResponse<DeliveryCreateResponseDto> createDelivery(DeliveryCreateRequestDto request, UUID userId, UserRole role, String internalCaller) {
-        // TODO 혀용 서비스 목록 Set.contain - 서비스여도 좋고 common도 좋고
-        boolean isOrderService = "order-service".equals(internalCaller);
-        if (!UserRole.MASTER.equals(role) && !isOrderService) {
+        if (!UserRole.MASTER.equals(role) && !isAllowedInternalCaller(internalCaller)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
 
@@ -259,6 +267,61 @@ public class DeliveryService {
                 .build());
     }
 
+    /**
+     * 주문 취소에 대한 보상 트랜잭션. order-service의 내부 호출 또는 MASTER의 수동 취소로 진입한다.
+     *
+     * <p>이미 완료됐거나 이동 중인 구간은 물리적으로 되돌릴 수 없으므로 기록을 그대로 보존하고,
+     * 아직 출발하지 않은(HUB_MOVE_WAIT) 구간과 마지막 "허브 → 업체" 배송만 취소한다.
+     * 보상 호출은 재시도될 수 있으므로 이미 취소됐거나 배송이 생성되지 않은 경우에도 성공으로 응답한다(멱등).
+     */
+    @Transactional
+    public ApiResponse<DeliveryCancelResponseDto> cancelDelivery(DeliveryCancelRequestDto request, UUID userId, UserRole role, String internalCaller) {
+        if (!UserRole.MASTER.equals(role) && !isAllowedInternalCaller(internalCaller)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+
+        Delivery delivery = deliveryRepository.findByOrderIdAndDeletedAtIsNull(request.getOrderId())
+                .orElse(null);
+
+        // 배송이 아직 생성되지 않았거나 이미 삭제된 주문 — 취소할 대상이 없으므로 성공으로 간주한다.
+        if (delivery == null) {
+            return ApiResponse.success(DeliveryCancelResponseDto.builder()
+                    .status(DeliveryStatusEnum.CANCELLED.name())
+                    .cancelledRouteCount(0)
+                    .preservedRouteCount(0)
+                    .build());
+        }
+
+        List<DeliveryRoute> routeList = deliveryRouteRepository.findAllByDeliveryOrderBySequenceAsc(delivery);
+
+        // 이미 취소된 배송에 대한 재시도 — 상태를 다시 건드리지 않고 현재 상태를 그대로 반환한다.
+        if (DeliveryStatusEnum.CANCELLED.equals(delivery.getStatus())) {
+            return ApiResponse.success(toCancelResponse(delivery, routeList));
+        }
+
+        delivery.cancel(request.getReason());
+
+        for (DeliveryRoute route : routeList) {
+            route.cancel();
+        }
+
+        return ApiResponse.success(toCancelResponse(delivery, routeList));
+    }
+
+    private DeliveryCancelResponseDto toCancelResponse(Delivery delivery, List<DeliveryRoute> routeList) {
+        int cancelledRouteCount = (int) routeList.stream()
+                .filter(route -> DeliveryRouteStatusEnum.CANCELLED.equals(route.getStatus()))
+                .count();
+
+        return DeliveryCancelResponseDto.builder()
+                .deliveryId(delivery.getDeliveryId())
+                .status(delivery.getStatus().name())
+                .cancelledAt(delivery.getCancelledAt())
+                .cancelledRouteCount(cancelledRouteCount)
+                .preservedRouteCount(routeList.size() - cancelledRouteCount)
+                .build();
+    }
+
     // ── 내부 헬퍼 ────────────────────────────────────────────────
 
     /**
@@ -373,4 +436,5 @@ public class DeliveryService {
         savedCursor.updateLastManager(nextManagerId);
         return nextManagerId;
     }
+
 }
