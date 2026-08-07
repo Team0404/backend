@@ -65,8 +65,11 @@ services:
       EUREKA_URL: http://eureka:8761/eureka/
       ZIPKIN_URL: http://zipkin:9411/api/v2/spans
       JWT_SECRET: ${JWT_SECRET}
+      USER_REDIS_HOST: user-redis
+      USER_REDIS_PORT: 6379
     depends_on:
       - eureka
+      - user-redis
     restart: unless-stopped
 
   user-service:
