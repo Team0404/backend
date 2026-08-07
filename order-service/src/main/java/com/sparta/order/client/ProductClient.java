@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.UUID;
 
-@FeignClient(name = "product-service", contextId = "productClient", path = "/api/v1/products")
+@FeignClient(name = "company-service", contextId = "productClient", path = "/api/v1/products")
 public interface ProductClient {
 
     @GetMapping("/{id}")
