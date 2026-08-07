@@ -3,6 +3,7 @@ package com.sparta.order.service;
 import com.sparta.common.entity.UserRole;
 import com.sparta.common.exception.BusinessException;
 import com.sparta.common.exception.ErrorCode;
+import com.sparta.common.exception.ErrorCodeIfs;
 import com.sparta.common.response.ApiResponse;
 import com.sparta.common.response.PageResponse;
 import com.sparta.order.client.CompanyClient;
@@ -24,13 +25,17 @@ import com.sparta.order.exception.OrderErrorCode;
 import com.sparta.order.repository.OrderRepository;
 import com.sparta.order.repository.query.OrderSearchCriteria;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
@@ -41,71 +46,83 @@ public class OrderServiceImpl implements OrderService {
     private final DeliveryClient deliveryClient;
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = OrderCreationCompensationException.class)
     public OrderResponse createOrder(CreateOrderRequest request, OrderServiceContext context) {
         validateCreatePermission(context.userRole());
 
-        //업체 조회
         CompanyResponse company = requireData(
                 companyClient.getCompany(request.companyId()),
                 "업체 정보를 조회할 수 없습니다."
         );
         validateSupplierCompanyAccess(context, company.id());
 
-        Order order = Order.builder()
-                .orderNumber(generateOrderNumber())
-                .companyId(company.id())
-                .hubId(company.hubId())
-                .requestNote(request.requestNote())
-                .deliveryDeadline(request.deliveryDeadline())
-                .status(OrderStatus.READY)
-                .build();
-
         UUID originHubId = null;
 
         for (CreateOrderRequest.OrderItemRequest itemRequest : request.orderItems()) {
-            //상품 조회
             ProductResponse product = requireData(
                     productClient.getProduct(itemRequest.productId()),
                     "상품 정보를 조회할 수 없습니다."
             );
 
-            //재고 처리
-            validateStock(product, itemRequest.quantity());
-            productClient.decreaseStock(itemRequest.productId(), itemRequest.quantity());
-
             if (originHubId == null) {
                 originHubId = product.hubId();
             }
-
-            OrderItem orderItem = OrderItem.builder()
-                    .productId(itemRequest.productId())
-                    .quantity(itemRequest.quantity())
-                    .build();
-
-            //OrderItem 연결
-            order.addOrderItem(orderItem);
         }
 
-        //Order 생성
-        Order savedOrder = orderRepository.save(order);
+        Order savedOrder = orderRepository.save(Order.builder()
+                .orderNumber(generateOrderNumber())
+                .companyId(company.id())
+                .hubId(company.hubId())
+                .requestNote(request.requestNote())
+                .deliveryDeadline(request.deliveryDeadline())
+                .status(OrderStatus.PENDING)
+                .build());
 
-        //배송 생성
-        DeliveryCreateResponse delivery = requireData(
-                deliveryClient.createDelivery(new DeliveryCreateRequest(
-                        savedOrder.getId(),
-                        originHubId,
-                        company.hubId(),
-                        company.address(),
-                        company.name(),
-                        null
-                )),
-                "배송 생성에 실패했습니다."
-        );
+        List<OrderItem> createdOrderItems = new ArrayList<>();
 
-        savedOrder.setDeliveryId(delivery.deliveryId());
+        try {
+            for (CreateOrderRequest.OrderItemRequest itemRequest : request.orderItems()) {
+                productClient.decreaseStock(itemRequest.productId(), itemRequest.quantity());
 
-        return OrderResponse.from(savedOrder);
+                OrderItem orderItem = OrderItem.builder()
+                        .productId(itemRequest.productId())
+                        .quantity(itemRequest.quantity())
+                        .build();
+
+                savedOrder.addOrderItem(orderItem);
+                createdOrderItems.add(orderItem);
+            }
+
+            DeliveryCreateResponse delivery = requireData(
+                    deliveryClient.createDelivery(new DeliveryCreateRequest(
+                            savedOrder.getId(),
+                            originHubId,
+                            company.hubId(),
+                            company.address(),
+                            company.name(),
+                            null
+                    )),
+                    "배송 생성에 실패했습니다."
+            );
+
+            savedOrder.setDeliveryId(delivery.deliveryId());
+            savedOrder.updateStatus(OrderStatus.READY);
+
+            return OrderResponse.from(savedOrder);
+        } catch (RuntimeException exception) {
+            String compensationErrorMessage = compensateOrderCreation(createdOrderItems, savedOrder);
+            if (compensationErrorMessage != null) {
+                throw new OrderCreationCompensationException(
+                        ErrorCode.FEIGN_CLIENT_ERROR,
+                        "주문 생성 중 오류가 발생했습니다. " + compensationErrorMessage
+                );
+            }
+
+            throw new OrderCreationCompensationException(
+                    ErrorCode.FEIGN_CLIENT_ERROR,
+                    "주문 생성 중 오류가 발생했습니다."
+            );
+        }
     }
 
     @Override
@@ -205,9 +222,35 @@ public class OrderServiceImpl implements OrderService {
         return response.getData();
     }
 
-    private void validateStock(ProductResponse product, Integer quantity) {
-        if (product.stockQuantity() == null || product.stockQuantity() < quantity.longValue()) {
-            throw new BusinessException(OrderErrorCode.INSUFFICIENT_STOCK);
+    private String compensateOrderCreation(List<OrderItem> createdOrderItems, Order order) {
+        List<String> restoreFailures = new ArrayList<>();
+
+        for (OrderItem orderItem : createdOrderItems) {
+            try {
+                productClient.restoreStock(orderItem.getProductId(), orderItem.getQuantity());
+            } catch (Exception exception) {
+                log.error(
+                        "재고 복구 실패. productId={}, quantity={}",
+                        orderItem.getProductId(),
+                        orderItem.getQuantity(),
+                        exception
+                );
+                restoreFailures.add(orderItem.getProductId() + ":" + orderItem.getQuantity());
+            }
+        }
+
+        order.updateStatus(OrderStatus.FAILED);
+
+        if (!restoreFailures.isEmpty()) {
+            return "재고 복구 실패 항목=" + String.join(", ", restoreFailures);
+        }
+
+        return null;
+    }
+
+    private static class OrderCreationCompensationException extends BusinessException {
+        private OrderCreationCompensationException(ErrorCodeIfs errorCode, String message) {
+            super(errorCode, message);
         }
     }
 
