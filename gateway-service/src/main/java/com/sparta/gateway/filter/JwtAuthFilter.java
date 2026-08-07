@@ -81,6 +81,9 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                     headers.remove(AuthHeaders.USER_ID);
                     headers.remove(AuthHeaders.USERNAME);
                     headers.remove(AuthHeaders.USER_ROLE);
+                    headers.remove(AuthHeaders.HUB_ID);
+                    headers.remove(AuthHeaders.COMPANY_ID);
+                    headers.remove(AuthHeaders.DELIVERY_MANAGER_ID);
                     headers.remove(AuthHeaders.TOKEN_ID);
                     headers.remove(AuthHeaders.TOKEN_EXPIRES_AT);
                 }))

@@ -73,6 +73,9 @@ class JwtAuthFilterTest {
         assertThat(headers.getFirst(AuthHeaders.USER_ROLE)).isEqualTo("SUPPLIER_MANAGER");
         assertThat(headers.getFirst(AuthHeaders.TOKEN_ID)).isEqualTo("access-token-id");
         assertThat(headers.getFirst(AuthHeaders.TOKEN_EXPIRES_AT)).isEqualTo("123456789");
+        assertThat(headers.containsKey(AuthHeaders.HUB_ID)).isFalse();
+        assertThat(headers.containsKey(AuthHeaders.COMPANY_ID)).isFalse();
+        assertThat(headers.containsKey(AuthHeaders.DELIVERY_MANAGER_ID)).isFalse();
     }
 
     @Test
@@ -101,6 +104,9 @@ class JwtAuthFilterTest {
         HttpHeaders headers = captor.getValue().getRequest().getHeaders();
         assertThat(headers.containsKey(AuthHeaders.USER_ID)).isFalse();
         assertThat(headers.containsKey(AuthHeaders.TOKEN_ID)).isFalse();
+        assertThat(headers.containsKey(AuthHeaders.HUB_ID)).isFalse();
+        assertThat(headers.containsKey(AuthHeaders.COMPANY_ID)).isFalse();
+        assertThat(headers.containsKey(AuthHeaders.DELIVERY_MANAGER_ID)).isFalse();
         verifyNoInteractions(jwtTokenProvider, blacklistChecker);
     }
 
@@ -120,6 +126,9 @@ class JwtAuthFilterTest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
                 .header(AuthHeaders.USER_ID, UUID.randomUUID().toString())
                 .header(AuthHeaders.TOKEN_ID, "forged-token-id")
+                .header(AuthHeaders.HUB_ID, UUID.randomUUID().toString())
+                .header(AuthHeaders.COMPANY_ID, UUID.randomUUID().toString())
+                .header(AuthHeaders.DELIVERY_MANAGER_ID, UUID.randomUUID().toString())
                 .build();
         return MockServerWebExchange.from(request);
     }
