@@ -1,6 +1,8 @@
 package com.sparta.delivery.domain.entity;
 
 import com.sparta.common.entity.BaseEntity;
+import com.sparta.common.exception.BusinessException;
+import com.sparta.common.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -52,4 +54,29 @@ public class DeliveryRoute extends BaseEntity {
 
     @Column(name = "hub_delivery_manager_id")
     public UUID hubDeliveryManagerId;
+
+    public void update(
+            String status,
+            BigDecimal actualDistanceKm,
+            Integer actualDurationMin,
+            UUID hubDeliveryManagerId
+    ) {
+        if (status != null && !status.isBlank()) {
+            // TODO transition 설정
+            try {
+                this.status = DeliveryRouteStatusEnum.valueOf(status);
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "유효하지않은 Status 입니다.");
+            }
+        }
+        if (actualDistanceKm != null) {
+            this.actualDistanceKm = actualDistanceKm;
+        }
+        if (actualDurationMin != null) {
+            this.actualDurationMin = actualDurationMin;
+        }
+        if (hubDeliveryManagerId != null) {
+            this.hubDeliveryManagerId = hubDeliveryManagerId;
+        }
+    }
 }
