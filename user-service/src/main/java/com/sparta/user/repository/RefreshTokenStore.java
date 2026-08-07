@@ -12,6 +12,8 @@ import java.util.UUID;
 public class RefreshTokenStore {
 
     private static final String KEY_PREFIX = "refresh-token:";
+    private static final String ACCESS_TOKEN_BLACKLIST_KEY_PREFIX = "access-token:blacklist:";
+    private static final String BLACKLIST_VALUE = "logout";
 
     private static final DefaultRedisScript<Long> ROTATE_SCRIPT = new DefaultRedisScript<>("""
             if redis.call('GET', KEYS[1]) == ARGV[1] then
@@ -21,11 +23,21 @@ public class RefreshTokenStore {
             return 0
             """, Long.class);
 
-    private static final DefaultRedisScript<Long> REVOKE_SCRIPT = new DefaultRedisScript<>("""
-            if redis.call('GET', KEYS[1]) == ARGV[1] then
-                return redis.call('DEL', KEYS[1])
+    private static final DefaultRedisScript<Long> LOGOUT_SCRIPT = new DefaultRedisScript<>("""
+            if redis.call('GET', KEYS[1]) ~= ARGV[1] then
+                return 0
             end
-            return 0
+
+            local redisTime = redis.call('TIME')
+            local nowMillis = redisTime[1] * 1000 + math.floor(redisTime[2] / 1000)
+            local ttlMillis = tonumber(ARGV[3]) - nowMillis
+
+            if ttlMillis > 0 then
+                redis.call('SET', KEYS[2], ARGV[2], 'PX', ttlMillis)
+            end
+
+            redis.call('DEL', KEYS[1])
+            return 1
             """, Long.class);
 
     private final StringRedisTemplate redisTemplate;
@@ -49,16 +61,23 @@ public class RefreshTokenStore {
         return Long.valueOf(1L).equals(result);
     }
 
-    public boolean revoke(UUID userId, String refreshToken) {
+    public boolean revokeAndBlacklistAccessToken(UUID userId, String refreshToken,
+                                                 String accessTokenId, long accessTokenExpiresAt) {
         Long result = redisTemplate.execute(
-                REVOKE_SCRIPT,
-                List.of(key(userId)),
-                refreshToken
+                LOGOUT_SCRIPT,
+                List.of(key(userId), blacklistKey(accessTokenId)),
+                refreshToken,
+                BLACKLIST_VALUE,
+                String.valueOf(accessTokenExpiresAt)
         );
         return Long.valueOf(1L).equals(result);
     }
 
     private String key(UUID userId) {
         return KEY_PREFIX + userId;
+    }
+
+    private String blacklistKey(String accessTokenId) {
+        return ACCESS_TOKEN_BLACKLIST_KEY_PREFIX + accessTokenId;
     }
 }

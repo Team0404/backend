@@ -26,6 +26,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -169,11 +170,13 @@ class AuthServiceTest {
         UUID userId = UUID.randomUUID();
         RefreshTokenRequest request = refreshTokenRequest("refresh-token");
         when(jwtTokenProvider.getUserIdFromRefreshToken("refresh-token")).thenReturn(userId);
-        when(refreshTokenStore.revoke(userId, "refresh-token")).thenReturn(true);
+        when(refreshTokenStore.revokeAndBlacklistAccessToken(
+                userId, "refresh-token", "access-token-id", 123456789L)).thenReturn(true);
 
-        authService.logout(request);
+        authService.logout(request, userId, "access-token-id", 123456789L);
 
-        verify(refreshTokenStore).revoke(userId, "refresh-token");
+        verify(refreshTokenStore).revokeAndBlacklistAccessToken(
+                userId, "refresh-token", "access-token-id", 123456789L);
     }
 
     @Test
@@ -181,11 +184,29 @@ class AuthServiceTest {
         UUID userId = UUID.randomUUID();
         RefreshTokenRequest request = refreshTokenRequest("refresh-token");
         when(jwtTokenProvider.getUserIdFromRefreshToken("refresh-token")).thenReturn(userId);
-        when(refreshTokenStore.revoke(userId, "refresh-token")).thenReturn(false);
+        when(refreshTokenStore.revokeAndBlacklistAccessToken(
+                userId, "refresh-token", "access-token-id", 123456789L)).thenReturn(false);
 
-        assertThatThrownBy(() -> authService.logout(request))
+        assertThatThrownBy(() -> authService.logout(
+                request, userId, "access-token-id", 123456789L))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+    }
+
+    @Test
+    void accessTokenAndRefreshTokenUsersMustMatchAtLogout() {
+        UUID accessTokenUserId = UUID.randomUUID();
+        UUID refreshTokenUserId = UUID.randomUUID();
+        RefreshTokenRequest request = refreshTokenRequest("refresh-token");
+        when(jwtTokenProvider.getUserIdFromRefreshToken("refresh-token")).thenReturn(refreshTokenUserId);
+
+        assertThatThrownBy(() -> authService.logout(
+                request, accessTokenUserId, "access-token-id", 123456789L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+
+        verify(refreshTokenStore, never()).revokeAndBlacklistAccessToken(
+                any(), any(), any(), anyLong());
     }
 
     @Test

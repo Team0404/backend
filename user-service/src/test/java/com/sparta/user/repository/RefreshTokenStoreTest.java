@@ -63,10 +63,34 @@ class RefreshTokenStoreTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void revokeReturnsFalseWhenStoredTokenDoesNotMatch() {
-        when(redisTemplate.execute(any(RedisScript.class), anyList(), eq("wrong-token")))
+    void logoutAtomicallyRevokesRefreshTokenAndBlacklistsAccessToken() {
+        UUID userId = UUID.randomUUID();
+        long accessTokenExpiresAt = 123456789L;
+        when(redisTemplate.execute(
+                any(RedisScript.class),
+                eq(List.of(
+                        "refresh-token:" + userId,
+                        "access-token:blacklist:access-token-id"
+                )),
+                eq("refresh-token"),
+                eq("logout"),
+                eq(String.valueOf(accessTokenExpiresAt))
+        )).thenReturn(1L);
+
+        boolean loggedOut = refreshTokenStore.revokeAndBlacklistAccessToken(
+                userId, "refresh-token", "access-token-id", accessTokenExpiresAt);
+
+        assertThat(loggedOut).isTrue();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void logoutReturnsFalseWhenStoredRefreshTokenDoesNotMatch() {
+        when(redisTemplate.execute(
+                any(RedisScript.class), anyList(), eq("wrong-token"), eq("logout"), any()))
                 .thenReturn(0L);
 
-        assertThat(refreshTokenStore.revoke(UUID.randomUUID(), "wrong-token")).isFalse();
+        assertThat(refreshTokenStore.revokeAndBlacklistAccessToken(
+                UUID.randomUUID(), "wrong-token", "access-token-id", 123456789L)).isFalse();
     }
 }

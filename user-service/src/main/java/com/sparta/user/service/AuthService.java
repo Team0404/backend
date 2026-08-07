@@ -115,10 +115,20 @@ public class AuthService {
                 .build();
     }
 
-    public void logout(RefreshTokenRequest request) {
+    public void logout(RefreshTokenRequest request, UUID authenticatedUserId,
+                       String accessTokenId, long accessTokenExpiresAt) {
         String refreshToken = request.getRefreshToken();
-        UUID userId = jwtTokenProvider.getUserIdFromRefreshToken(refreshToken);
-        if (!refreshTokenStore.revoke(userId, refreshToken)) {
+        UUID refreshTokenUserId = jwtTokenProvider.getUserIdFromRefreshToken(refreshToken);
+        if (!refreshTokenUserId.equals(authenticatedUserId)) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "Access Token과 Refresh Token의 사용자가 일치하지 않습니다.");
+        }
+
+        if (!refreshTokenStore.revokeAndBlacklistAccessToken(
+                authenticatedUserId,
+                refreshToken,
+                accessTokenId,
+                accessTokenExpiresAt
+        )) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "폐기되었거나 일치하지 않는 Refresh Token입니다.");
         }
     }

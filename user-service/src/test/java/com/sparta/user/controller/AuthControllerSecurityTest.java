@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -128,13 +129,25 @@ class AuthControllerSecurityTest {
     @Test
     void logoutApiRevokesRefreshToken() throws Exception {
         mockMvc.perform(post("/api/v1/auth/logout")
+                        .headers(authenticationHeaders(UserRole.SUPPLIER_MANAGER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new RefreshTokenRequestBody("refresh-token"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(authService).logout(any());
+        verify(authService).logout(any(), any(), eq("access-token-id"), eq(123456789L));
+    }
+
+    @Test
+    void logoutApiRequiresAuthenticationHeaders() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new RefreshTokenRequestBody("refresh-token"))))
+                .andExpect(status().isUnauthorized());
+
+        verify(authService, never()).logout(any(), any(), any(), anyLong());
     }
 
     @Test
@@ -151,6 +164,8 @@ class AuthControllerSecurityTest {
         headers.add(AuthHeaders.USER_ID, UUID.randomUUID().toString());
         headers.add(AuthHeaders.USERNAME, "tester");
         headers.add(AuthHeaders.USER_ROLE, role.name());
+        headers.add(AuthHeaders.TOKEN_ID, "access-token-id");
+        headers.add(AuthHeaders.TOKEN_EXPIRES_AT, "123456789");
         return headers;
     }
 
