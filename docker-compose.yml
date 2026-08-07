@@ -39,6 +39,21 @@ services:
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
 
+  # user-service Refresh Token 전용 Redis
+  user-redis:
+    image: redis:7-alpine
+    container_name: sparta-user-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "127.0.0.1:${USER_REDIS_PORT:-6380}:6379"
+    volumes:
+      - user-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   zipkin:
     image: openzipkin/zipkin:latest
     container_name: sparta-zipkin
@@ -66,10 +81,11 @@ services:
     environment:
       EUREKA_URL: http://eureka:8761/eureka/
       ZIPKIN_URL: http://zipkin:9411/api/v2/spans
-      JWT_SECRET: ${JWT_SECRET:-replace-with-a-long-random-secret-key}
+      JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-please-override-in-production-0123456789}
     depends_on:
       - eureka
       - zipkin
 
 volumes:
   postgres-data:
+  user-redis-data:

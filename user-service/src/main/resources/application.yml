@@ -16,11 +16,16 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  data:
+    redis:
+      host: ${USER_REDIS_HOST:localhost}
+      port: ${USER_REDIS_PORT:6380}
 
 # JWT 발급 시크릿 (gateway 검증과 반드시 동일 값)
 jwt:
   secret: ${JWT_SECRET:local-dev-jwt-secret-please-override-in-production-0123456789}
   access-expiration: ${JWT_ACCESS_EXPIRATION:3600000}   # 1시간(ms)
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:1209600000} # 14일(ms)
 
 eureka:
   client:
