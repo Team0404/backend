@@ -13,6 +13,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -34,11 +36,11 @@ public class DeliveryManagerController {
 
     // DM1. 배송 담당자 생성 (MASTER / 담당 허브 HUB_MANAGER)
     @PostMapping
-    public ApiResponse<DeliveryManagerResponseDto> createDeliveryManager(
+    public ResponseEntity<ApiResponse<DeliveryManagerResponseDto>> createDeliveryManager(
             @CurrentUser UserPrincipal authUser,
             @RequestBody @Valid DeliveryManagerCreateRequestDto request
     ) {
-        return deliveryManagerService.createDeliveryManager(request, authUser.getUserId(), authUser.getRole());
+        return ResponseEntity.status(HttpStatus.CREATED).body(deliveryManagerService.createDeliveryManager(request, authUser.getUserId(), authUser.getRole()));
     }
 
     // DM2. 배송 담당자 단건 조회 (MASTER / 담당 허브 HUB_MANAGER / 본인)

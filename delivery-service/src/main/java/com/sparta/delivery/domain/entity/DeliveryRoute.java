@@ -4,10 +4,7 @@ import com.sparta.common.entity.BaseEntity;
 import com.sparta.common.exception.BusinessException;
 import com.sparta.common.exception.ErrorCode;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -15,8 +12,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "p_delivery_routes")
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
 public class DeliveryRoute extends BaseEntity {
 
@@ -25,7 +22,7 @@ public class DeliveryRoute extends BaseEntity {
     public UUID Id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "delivery_id")
+    @JoinColumn(name = "delivery_id", nullable = false)
     public Delivery delivery;
 
     @Column(name = "sequence", nullable = false)
