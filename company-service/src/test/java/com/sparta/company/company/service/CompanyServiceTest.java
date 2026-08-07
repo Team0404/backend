@@ -2,6 +2,7 @@ package com.sparta.company.company.service;
 
 import com.sparta.common.entity.UserRole;
 import com.sparta.common.exception.BusinessException;
+import com.sparta.common.response.ApiResponse;
 import com.sparta.common.security.UserPrincipal;
 import com.sparta.company.client.hub.HubClient;
 import com.sparta.company.client.hub.HubResponse;
@@ -73,8 +74,10 @@ class CompanyServiceTest {
         CompanyCreateRequest request = new CompanyCreateRequest(
                 "일산 건조식품 가공업체", CompanyType.PRODUCER, hubId, "경기도 고양시 일산동구 ...");
 
-        given(hubClient.getHub(hubId.toString()))
-                .willReturn(new HubResponse(hubId, "경기 북부 센터", "경기도 고양시..."));
+        given(hubClient.getHub(hubId))
+                .willReturn(ApiResponse.success(
+                        new HubResponse(hubId, "경기 북부 센터", "경기도 고양시...")
+                        ));
 
         Company saved = Company.builder()
                 .name(request.name())
@@ -100,7 +103,7 @@ class CompanyServiceTest {
         CompanyCreateRequest request = new CompanyCreateRequest(
                 "테스트 업체", CompanyType.RECEIVER, hubId, "주소");
 
-        given(hubClient.getHub(anyString()))
+        given(hubClient.getHub(any()))
                 .willThrow(mock(feign.FeignException.NotFound.class));
 
         // when & then

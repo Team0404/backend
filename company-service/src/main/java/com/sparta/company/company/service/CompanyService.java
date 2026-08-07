@@ -104,7 +104,7 @@ public class CompanyService {
 
     private void validateHubExists(UUID hubId) {
         try {
-            hubClient.getHub(hubId.toString());
+            hubClient.getHub(hubId);
         } catch (FeignException.NotFound e) {
             throw new BusinessException(CompanyErrorCode.INVALID_HUB_ID);
         }
