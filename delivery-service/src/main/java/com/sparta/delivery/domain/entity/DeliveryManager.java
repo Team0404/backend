@@ -1,11 +1,9 @@
 package com.sparta.delivery.domain.entity;
 
 import com.sparta.common.entity.BaseEntity;
+import com.sparta.delivery.domain.dto.response.DeliveryManagerResponseDto;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.UUID;
 
@@ -19,8 +17,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "p_delivery_managers")
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
 public class DeliveryManager extends BaseEntity {
 
@@ -43,7 +41,14 @@ public class DeliveryManager extends BaseEntity {
     @Column(name = "sequence", nullable = false)
     private Integer sequence;
 
-    // 허브 ID 혹은 업체 ID 혹은 NULL
-    @Column(name = "last_assigned_at")
-    private Integer lastAssignedAt;
+    /**
+     * 부분 수정 해석(요청에 없는 값은 기존 값 유지)은 서비스에서 끝내고,
+     * 여기서는 확정된 최종 값만 반영한다.
+     * type이 HUB로 바뀌면 hubId는 null로 비워져야 하므로 null skip 방식을 쓰지 않는다.
+     */
+    public void update(DeliveryManagerType type, UUID hubId, Integer sequence){
+        this.type = type;
+        this.hubId = hubId;
+        this.sequence = sequence;
+    }
 }

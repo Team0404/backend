@@ -1,19 +1,18 @@
 package com.sparta.delivery.domain.entity;
 
+
 import com.sparta.common.entity.BaseEntity;
-import com.sparta.common.exception.BusinessException;
-import com.sparta.common.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.UUID;
 
-@Entity
 @Table(name = "p_deliveries")
+@Entity
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)   
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Delivery extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -54,14 +53,7 @@ public class Delivery extends BaseEntity {
             UUID companyDeliveryManagerId
     ){
         if(status != null && !status.isBlank()){
-            DeliveryStatusEnum next;
-            try {
-                // TODO transition 설정
-                next = DeliveryStatusEnum.valueOf(status);
-                this.status = next;
-            } catch (IllegalArgumentException e) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT, "유효하지않은 Status 입니다.");
-            }
+            this.status = DeliveryStatusEnum.fromString(status);
         }
         if(deliveryAddress != null && !deliveryAddress.isBlank()){
             this.deliveryAddress = deliveryAddress;

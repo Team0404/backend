@@ -5,15 +5,20 @@ import com.sparta.common.exception.ErrorCode;
 import com.sparta.common.entity.UserRole;
 import com.sparta.user.dto.LoginRequest;
 import com.sparta.user.dto.LoginResponse;
+import com.sparta.user.dto.RefreshTokenRequest;
 import com.sparta.user.dto.SignupRequest;
 import com.sparta.user.dto.SignupResponse;
+import com.sparta.user.dto.TokenRefreshResponse;
 import com.sparta.user.entity.User;
 import com.sparta.user.jwt.JwtTokenProvider;
+import com.sparta.user.repository.RefreshTokenStore;
 import com.sparta.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +27,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenStore refreshTokenStore;
 
     /**
      * 회원가입
@@ -73,12 +79,61 @@ public class AuthService {
 
         String accessToken = jwtTokenProvider.createAccessToken(
                 user.getUserId(), user.getUsername(), user.getRole());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId());
+        refreshTokenStore.save(user.getUserId(), refreshToken, jwtTokenProvider.getRefreshTokenTtl());
 
         return LoginResponse.builder()
                 .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .userId(user.getUserId())
                 .role(user.getRole())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public TokenRefreshResponse refresh(RefreshTokenRequest request) {
+        String currentRefreshToken = request.getRefreshToken();
+        User user = getRefreshTarget(currentRefreshToken);
+
+        String newAccessToken = jwtTokenProvider.createAccessToken(
+                user.getUserId(), user.getUsername(), user.getRole());
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getUserId());
+
+        boolean rotated = refreshTokenStore.rotate(
+                user.getUserId(),
+                currentRefreshToken,
+                newRefreshToken,
+                jwtTokenProvider.getRefreshTokenTtl()
+        );
+        if (!rotated) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "폐기되었거나 일치하지 않는 Refresh Token입니다.");
+        }
+
+        return TokenRefreshResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
+                .build();
+    }
+
+    public void logout(RefreshTokenRequest request) {
+        String refreshToken = request.getRefreshToken();
+        UUID userId = jwtTokenProvider.getUserIdFromRefreshToken(refreshToken);
+        if (!refreshTokenStore.revoke(userId, refreshToken)) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "폐기되었거나 일치하지 않는 Refresh Token입니다.");
+        }
+    }
+
+    private User getRefreshTarget(String refreshToken) {
+        UUID userId = jwtTokenProvider.getUserIdFromRefreshToken(refreshToken);
+        User user = userRepository.findByUserIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.UNAUTHORIZED, "유효한 Refresh Token이 아닙니다."));
+
+        if (!user.isApproved()) {
+            throw new BusinessException(
+                    ErrorCode.ACCESS_DENIED, "승인된 사용자만 토큰을 재발급할 수 있습니다.");
+        }
+        return user;
     }
 
     private void validateSignupPolicy(SignupRequest request) {

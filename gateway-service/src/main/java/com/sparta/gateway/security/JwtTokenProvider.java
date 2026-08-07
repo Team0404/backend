@@ -1,6 +1,8 @@
 package com.sparta.gateway.security;
 
+import com.sparta.common.security.TokenType;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -14,18 +16,21 @@ import java.nio.charset.StandardCharsets;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret}")
-    private String secretKey;
+    private final SecretKey signingKey;
 
-    private SecretKey signingKey() {
-        return Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+    public JwtTokenProvider(@Value("${jwt.secret}") String secretKey) {
+        this.signingKey = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
 
     public Claims validateAndExtract(String token) {
-        return Jwts.parser()
-                .verifyWith(signingKey())
+        Claims claims = Jwts.parser()
+                .verifyWith(signingKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+        if (!TokenType.ACCESS.name().equals(claims.get("tokenType", String.class))) {
+            throw new JwtException("Access Token이 아닙니다.");
+        }
+        return claims;
     }
 }

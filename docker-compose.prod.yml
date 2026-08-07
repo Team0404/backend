@@ -31,6 +31,20 @@ services:
     container_name: sparta-redis
     restart: unless-stopped
 
+  # user-service Refresh Token 전용 Redis
+  user-redis:
+    image: redis:7-alpine
+    container_name: sparta-user-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - user-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   zipkin:
     image: openzipkin/zipkin:latest
     container_name: sparta-zipkin
@@ -63,13 +77,17 @@ services:
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD}
+      USER_REDIS_HOST: user-redis
+      USER_REDIS_PORT: 6379
       EUREKA_URL: http://eureka:8761/eureka/
       ZIPKIN_URL: http://zipkin:9411/api/v2/spans
       JWT_SECRET: ${JWT_SECRET}
     depends_on:
       - postgres
+      - user-redis
       - eureka
     restart: unless-stopped
 
 volumes:
   postgres-data:
+  user-redis-data:
