@@ -11,14 +11,16 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: ${DDL_AUTO:update}
-    show-sql: ${SHOW_SQL:true}
+      ddl-auto: ${DDL_AUTO:validate}
     properties:
       hibernate:
-        default_schema: ${DB_SCHEMA:company_service}
-        hbm2ddl:
-          create_namespaces: true
-        format_sql: true
+        default_schema: ${DB_SCHEMA:public}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: ${DB_SCHEMA:public}
+    clean-disabled: true
+    validate-migration-naming: true
 
 eureka:
   client:
