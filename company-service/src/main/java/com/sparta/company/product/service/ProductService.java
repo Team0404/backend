@@ -52,33 +52,57 @@ public class ProductService {
     }
 
     @Transactional
-    public ProductResponse update(ProductUpdateRequest request, UserPrincipal userPrincipal) {
-        return null;
+    public ProductResponse update(UUID productId, ProductUpdateRequest request, UserPrincipal userPrincipal) {
+
+        Product product = getActiveProductOrThrow(productId);
+
+        validateUpdatePermission(product, userPrincipal);
+
+        product.update(request.name(), request.price());
+
+        return ProductResponse.from(product);
     }
 
     @Transactional
-    public void delete(UUID id, UserPrincipal userPrincipal) {
+    public void delete(UUID productId, UserPrincipal userPrincipal) {
 
+        Product product = getActiveProductOrThrow(productId);
+
+        validateDeletePermission(product, userPrincipal);
+
+        product.softDelete(userPrincipal.getUserId());
     }
 
-    public ProductResponse getone(UUID productId){
-        return null;
+    public ProductResponse getOne(UUID productId) {
+        return ProductResponse.from(getActiveProductOrThrow(productId));
     }
 
     public Page<ProductResponse> search(ProductSearchCondition condition, Pageable pageable, UserPrincipal userPrincipal) {
-        return null;
+
+        ProductSearchCondition scopedCondition = condition;
+
+        if (userPrincipal.hasAnyRole(UserRole.HUB_MANAGER)) {
+            UUID myHubId = getScopeHubId(userPrincipal);
+            scopedCondition = new ProductSearchCondition(condition.keyword(), condition.companyId(), myHubId);
+        }
+
+        return productQueryRepository.search(scopedCondition, pageable)
+                .map(ProductResponse::from);
     }
 
     @Transactional
-    public void decreaseStock(UUID id, Integer quantity){
-
+    public void decreaseStock(UUID productId, Integer quantity) {
+        validateQuantity(quantity);
+        Product product = getActiveProductOrThrow(productId);
+        product.decreaseStock(quantity);
     }
 
     @Transactional
-    public void restoreStock(UUID id, Integer quantity){
-
+    public void restoreStock(UUID productId, Integer quantity) {
+        validateQuantity(quantity);
+        Product product = getActiveProductOrThrow(productId);
+        product.increaseStock(quantity);
     }
-
 
     // 내부 검증 로직
 
