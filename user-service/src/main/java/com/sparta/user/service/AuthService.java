@@ -78,7 +78,8 @@ public class AuthService {
         }
 
         String accessToken = jwtTokenProvider.createAccessToken(
-                user.getUserId(), user.getUsername(), user.getRole());
+                user.getUserId(), user.getUsername(), user.getRole(),
+                user.getHubId(), user.getCompanyId());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId());
         refreshTokenStore.save(user.getUserId(), refreshToken, jwtTokenProvider.getRefreshTokenTtl());
 
@@ -96,7 +97,8 @@ public class AuthService {
         User user = getRefreshTarget(currentRefreshToken);
 
         String newAccessToken = jwtTokenProvider.createAccessToken(
-                user.getUserId(), user.getUsername(), user.getRole());
+                user.getUserId(), user.getUsername(), user.getRole(),
+                user.getHubId(), user.getCompanyId());
         String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getUserId());
 
         boolean rotated = refreshTokenStore.rotate(

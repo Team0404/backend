@@ -74,7 +74,7 @@ class JwtAuthFilterTest {
         assertThat(headers.getFirst(AuthHeaders.TOKEN_ID)).isEqualTo("access-token-id");
         assertThat(headers.getFirst(AuthHeaders.TOKEN_EXPIRES_AT)).isEqualTo("123456789");
         assertThat(headers.containsKey(AuthHeaders.HUB_ID)).isFalse();
-        assertThat(headers.containsKey(AuthHeaders.COMPANY_ID)).isFalse();
+        assertThat(headers.getFirst(AuthHeaders.COMPANY_ID)).isEqualTo("trusted-company-id");
         assertThat(headers.containsKey(AuthHeaders.DELIVERY_MANAGER_ID)).isFalse();
     }
 
@@ -139,6 +139,7 @@ class JwtAuthFilterTest {
         when(claims.getId()).thenReturn("access-token-id");
         when(claims.get("username", String.class)).thenReturn("tester");
         when(claims.get("role", String.class)).thenReturn("SUPPLIER_MANAGER");
+        when(claims.get("companyId", String.class)).thenReturn("trusted-company-id");
         when(claims.getExpiration()).thenReturn(new Date(123456789L));
         return claims;
     }

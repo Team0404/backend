@@ -96,11 +96,21 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                     headers.set(AuthHeaders.USER_ID, claims.getSubject());
                     headers.set(AuthHeaders.USERNAME, claims.get("username", String.class));
                     headers.set(AuthHeaders.USER_ROLE, claims.get("role", String.class));
+                    setHeaderIfPresent(headers, AuthHeaders.HUB_ID,
+                            claims.get("hubId", String.class));
+                    setHeaderIfPresent(headers, AuthHeaders.COMPANY_ID,
+                            claims.get("companyId", String.class));
                     headers.set(AuthHeaders.TOKEN_ID, claims.getId());
                     headers.set(AuthHeaders.TOKEN_EXPIRES_AT,
                             String.valueOf(claims.getExpiration().getTime()));
                 }))
                 .build();
+    }
+
+    private void setHeaderIfPresent(HttpHeaders headers, String name, String value) {
+        if (value != null && !value.isBlank()) {
+            headers.set(name, value);
+        }
     }
 
     private boolean isWhitelisted(String path) {
