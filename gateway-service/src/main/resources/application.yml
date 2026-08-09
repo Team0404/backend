@@ -38,7 +38,7 @@ spring:
             - id: slack-service
               uri: lb://slack-service
               predicates:
-                - Path=/api/v1/slack/**
+                - Path=/api/v1/slack-messages/**, /api/v1/ai-messages/**, /api/v1/ai/**
 
             # --- Swagger(OpenAPI) 문서 프록시: /{service}/v3/api-docs → 각 서비스의 /v3/api-docs ---
             - id: user-service-docs
