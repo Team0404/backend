@@ -5,7 +5,7 @@ spring:
   application:
     name: slack-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sparta_logistics}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:slack_service}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
@@ -15,7 +15,6 @@ spring:
     show-sql: ${SHOW_SQL:true}
     properties:
       hibernate:
-        default_schema: ${DB_SCHEMA:slack_service}
         format_sql: true
 
 # 슬랙 메시지 발송 (Incoming Webhook 또는 Bot Token)
