@@ -78,6 +78,7 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
+      DB_NAME: user_service
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD}
       USER_REDIS_HOST: user-redis
