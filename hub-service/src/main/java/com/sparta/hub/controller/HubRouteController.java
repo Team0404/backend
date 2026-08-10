@@ -21,7 +21,7 @@ import java.util.UUID;
         description = "허브 간 이동정보 생성,조회,수정,삭제 API"
 )
 @RestController
-@RequestMapping("/apu/v1/hub-routes")
+@RequestMapping("/api/v1/hub-routes")
 @RequiredArgsConstructor
 public class HubRouteController {
     private final HubRouteService hubRouteService;
@@ -68,7 +68,7 @@ public class HubRouteController {
             )
     })
 
-    @GetMapping("{routeId}")
+    @GetMapping("/{routeId}")
     public ApiResponse<HubRouteResponse> findHubRoute(@PathVariable UUID routeId){
 
         return ApiResponse.success(hubRouteService.findHubRoute(routeId));
@@ -102,7 +102,7 @@ public class HubRouteController {
     }
 
     // 이동 정보 수정
-    @PatchMapping("{routeId}")
+    @PatchMapping("/{routeId}")
     public ApiResponse<Void> updateHubRoute(@PathVariable UUID routeId){
         hubRouteService.hubRouteUpdate(routeId);
         return ApiResponse.success("허브 라우터 수정 완료", null);

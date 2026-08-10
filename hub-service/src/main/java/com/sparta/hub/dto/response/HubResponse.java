@@ -15,7 +15,7 @@ public class HubResponse {
     private BigDecimal longitude;
 
     public HubResponse(Hub hub) {
-        this.id = hub.getId();
+        this.id = hub.getHubId();
         this.name = hub.getName();
         this.address = hub.getAddress();
         this.latitude = hub.getLatitude();

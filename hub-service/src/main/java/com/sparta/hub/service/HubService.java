@@ -21,7 +21,7 @@ public class HubService {
     // 허브 단건 조회
     @Transactional(readOnly = true)
     public HubResponse findHub(UUID hubId){
-        Hub hub = hubRepository.findByIdAndDeletedAtIsNull(hubId).orElseThrow(()
+        Hub hub = hubRepository.findByHubIdAndDeletedAtIsNull(hubId).orElseThrow(()
                 -> new RuntimeException("없는 번호 입니다."));
 
         return new HubResponse(hub);
@@ -55,7 +55,7 @@ public class HubService {
     // 허브 수정
     @Transactional
     public void updateHub(UUID hubId, HubUpdateRequest request) {
-        Hub hub = hubRepository.findByIdAndDeletedAtIsNull(hubId)
+        Hub hub = hubRepository.findByHubIdAndDeletedAtIsNull(hubId)
                 .orElseThrow(() -> new RuntimeException("없는 허브 번호 입니다"));
 
         hub.update(request);
@@ -64,7 +64,7 @@ public class HubService {
     // 허브 삭제(SoftDelete)
     @Transactional
     public void deleteHub(UUID hubId){
-        Hub hub = hubRepository.findByIdAndDeletedAtIsNull(hubId)
+        Hub hub = hubRepository.findByHubIdAndDeletedAtIsNull(hubId)
                 .orElseThrow(() -> new RuntimeException("없는 허브 번호 입니다"));
 
         hub.softDelete(hubId);

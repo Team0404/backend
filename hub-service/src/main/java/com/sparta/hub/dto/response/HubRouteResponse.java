@@ -24,12 +24,12 @@ public class HubRouteResponse {
     private BigDecimal distanceKm;
 
     public HubRouteResponse(HubRoute route) {
-        this.routeId = route.getId();
+        this.routeId = route.getHubRouteId();
 
-        this.departureHubId = route.getDepartureHub().getId();
+        this.departureHubId = route.getDepartureHub().getHubId();
         this.departureHubName = route.getDepartureHub().getName();
 
-        this.arrivalHubId = route.getArrivalHub().getId();
+        this.arrivalHubId = route.getArrivalHub().getHubId();
         this.arrivalHubName = route.getArrivalHub().getName();
 
         this.durationMinutes = route.getDurationMinutes();

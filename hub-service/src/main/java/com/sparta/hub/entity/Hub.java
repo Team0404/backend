@@ -18,7 +18,7 @@ public class Hub extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    private UUID hubId;
 
     @Column(name = "name", nullable = false, length = 100)
     private String name;

@@ -23,7 +23,7 @@ import java.util.UUID;
         description = "허브 생성, 조회, 수정, 삭제 API"
 )
 @RestController
-@RequestMapping("/hubs")
+@RequestMapping("/api/v1/hubs")
 @RequiredArgsConstructor
 public class HubController {
     private final HubService hubService;

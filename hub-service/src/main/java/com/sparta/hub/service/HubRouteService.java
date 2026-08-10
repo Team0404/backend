@@ -1,7 +1,6 @@
 package com.sparta.hub.service;
 
 import com.sparta.hub.dto.request.HubRouteCreateRequest;
-import com.sparta.hub.dto.response.HubResponse;
 import com.sparta.hub.dto.response.HubRoutePathResponse;
 import com.sparta.hub.dto.response.HubRouteResponse;
 import com.sparta.hub.entity.Hub;
@@ -75,9 +74,9 @@ public class HubRouteService {
                 new HubRouteResponse(hubRoute);
 
         return new HubRoutePathResponse(
-                hubRoute.getDepartureHub().getId(),
+                hubRoute.getDepartureHub().getHubId(),
                 hubRoute.getDepartureHub().getName(),
-                hubRoute.getArrivalHub().getId(),
+                hubRoute.getArrivalHub().getHubId(),
                 hubRoute.getArrivalHub().getName(),
                 List.of(routeResponse),
                 hubRoute.getDurationMinutes(),
@@ -92,15 +91,15 @@ public class HubRouteService {
 
     // 허브 이동 정보 생성
     public void createHubRoute(HubRouteCreateRequest request){
-        Hub departureHubId = hubRepository.findByIdAndDeletedAtIsNull
+        Hub departureHubId = hubRepository.findByHubIdAndDeletedAtIsNull
                 (request.getDepartureHubId()).
                 orElseThrow(() -> new RuntimeException("출발 허브 Id가 존재 하지 않습니다."));
 
 
-        Hub arrivalHubId = hubRepository.findByIdAndDeletedAtIsNull(request.getDepartureHubId()).
+        Hub arrivalHubId = hubRepository.findByHubIdAndDeletedAtIsNull(request.getArrivalHubId()).
                 orElseThrow(() -> new RuntimeException("도착 허브 Id가 존재 하지 않습니다."));
 
-        if(departureHubId.getId() == arrivalHubId.getId()){
+        if(departureHubId.getHubId().equals(arrivalHubId.getHubId())){
             throw new IllegalArgumentException(
                     "출발 허브와 도착 허브는 같을 수 없습니다."
             );
@@ -116,7 +115,7 @@ public class HubRouteService {
     // 허브 라우터 수정
     @Transactional
     public void hubRouteUpdate(UUID routeId){
-        HubRoute hubRoute = hubRouteRepository.findByIdAndDeletedAtIsNull(routeId)
+        HubRoute hubRoute = hubRouteRepository.findByHubRouteIdAndDeletedAtIsNull(routeId)
                 .orElseThrow(() -> new RuntimeException("허브라우터가 존재하지 않습니다."));
 
         hubRoute.updateRoute(hubRoute.getDurationMinutes(),hubRoute.getDistanceKm());
@@ -126,7 +125,7 @@ public class HubRouteService {
     // 허브 라우터 삭제
     @Transactional
     public void deleteHubRoute(UUID id){
-        HubRoute hubroute = hubRouteRepository.findByIdAndDeletedAtIsNull(id)
+        HubRoute hubroute = hubRouteRepository.findByHubRouteIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new RuntimeException("존재하지 않은 라우터 입니다."));
 
         hubroute.softDelete(id);
