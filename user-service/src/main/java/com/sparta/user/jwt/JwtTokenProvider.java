@@ -39,19 +39,27 @@ public class JwtTokenProvider {
         this.refreshExpiration = refreshExpiration;
     }
 
-    public String createAccessToken(UUID userId, String username, UserRole role) {
+    public String createAccessToken(UUID userId, String username, UserRole role,
+                                    UUID hubId, UUID companyId) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + accessExpiration);
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim("username", username)
                 .claim("role", role.name())
                 .claim("tokenType", TokenType.ACCESS.name())
                 .id(UUID.randomUUID().toString())
                 .issuedAt(now)
-                .expiration(expiry)
-                .signWith(key)
-                .compact();
+                .expiration(expiry);
+
+        if (hubId != null) {
+            builder.claim("hubId", hubId.toString());
+        }
+        if (companyId != null) {
+            builder.claim("companyId", companyId.toString());
+        }
+
+        return builder.signWith(key).compact();
     }
 
     public String createRefreshToken(UUID userId) {

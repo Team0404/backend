@@ -42,9 +42,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class OrderControllerTest {
 
     private static final String BASE_URL = "/api/v1/orders";
-    private static final String HUB_ID_HEADER = "X-Hub-Id";
-    private static final String COMPANY_ID_HEADER = "X-Company-Id";
-    private static final String DELIVERY_MANAGER_ID_HEADER = "X-Delivery-Manager-Id";
 
     @Autowired
     private MockMvc mockMvc;
@@ -78,9 +75,9 @@ class OrderControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(AuthHeaders.USER_ID, userId)
                         .header(AuthHeaders.USER_ROLE, UserRole.SUPPLIER_MANAGER.name())
-                        .header(HUB_ID_HEADER, hubId)
-                        .header(COMPANY_ID_HEADER, companyId)
-                        .header(DELIVERY_MANAGER_ID_HEADER, deliveryManagerId)
+                        .header(AuthHeaders.HUB_ID, hubId)
+                        .header(AuthHeaders.COMPANY_ID, companyId)
+                        .header(AuthHeaders.DELIVERY_MANAGER_ID, deliveryManagerId)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
@@ -146,7 +143,7 @@ class OrderControllerTest {
         mockMvc.perform(get(BASE_URL + "/{orderId}", orderId)
                         .header(AuthHeaders.USER_ID, userId)
                         .header(AuthHeaders.USER_ROLE, UserRole.HUB_MANAGER.name())
-                        .header(HUB_ID_HEADER, hubId))
+                        .header(AuthHeaders.HUB_ID, hubId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(orderId.toString()));
@@ -173,7 +170,7 @@ class OrderControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(AuthHeaders.USER_ID, userId)
                         .header(AuthHeaders.USER_ROLE, UserRole.SUPPLIER_MANAGER.name())
-                        .header(COMPANY_ID_HEADER, companyId)
+                        .header(AuthHeaders.COMPANY_ID, companyId)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -197,7 +194,7 @@ class OrderControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(AuthHeaders.USER_ID, userId)
                         .header(AuthHeaders.USER_ROLE, UserRole.HUB_MANAGER.name())
-                        .header(HUB_ID_HEADER, hubId)
+                        .header(AuthHeaders.HUB_ID, hubId)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -218,7 +215,7 @@ class OrderControllerTest {
         mockMvc.perform(patch(BASE_URL + "/{orderId}/cancel", orderId)
                         .header(AuthHeaders.USER_ID, userId)
                         .header(AuthHeaders.USER_ROLE, UserRole.SUPPLIER_MANAGER.name())
-                        .header(COMPANY_ID_HEADER, companyId))
+                        .header(AuthHeaders.COMPANY_ID, companyId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("주문 취소가 완료되었습니다."));
@@ -236,7 +233,7 @@ class OrderControllerTest {
         mockMvc.perform(delete(BASE_URL + "/{orderId}", orderId)
                         .header(AuthHeaders.USER_ID, userId)
                         .header(AuthHeaders.USER_ROLE, UserRole.HUB_MANAGER.name())
-                        .header(HUB_ID_HEADER, hubId))
+                        .header(AuthHeaders.HUB_ID, hubId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("주문 삭제가 완료되었습니다."));

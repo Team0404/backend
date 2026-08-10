@@ -26,6 +26,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -92,7 +93,7 @@ class AuthServiceTest {
         User user = user(ApprovalStatus.APPROVED);
         when(userRepository.findByUsernameAndDeletedAtIsNull("login-user")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("password", "encoded-password")).thenReturn(true);
-        when(jwtTokenProvider.createAccessToken(any(), any(), any())).thenReturn("access-token");
+        when(jwtTokenProvider.createAccessToken(any(), any(), any(), any(), any())).thenReturn("access-token");
         when(jwtTokenProvider.createRefreshToken(any())).thenReturn("refresh-token");
         when(jwtTokenProvider.getRefreshTokenTtl()).thenReturn(Duration.ofDays(14));
 
@@ -101,6 +102,9 @@ class AuthServiceTest {
         assertThat(response.getAccessToken()).isEqualTo("access-token");
         assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
         verify(refreshTokenStore).save(user.getUserId(), "refresh-token", Duration.ofDays(14));
+        verify(jwtTokenProvider).createAccessToken(
+                user.getUserId(), user.getUsername(), user.getRole(),
+                user.getHubId(), user.getCompanyId());
     }
 
     @Test
@@ -109,7 +113,7 @@ class AuthServiceTest {
         User user = user(ApprovalStatus.APPROVED);
         when(jwtTokenProvider.getUserIdFromRefreshToken("current-refresh-token")).thenReturn(user.getUserId());
         when(userRepository.findByUserIdAndDeletedAtIsNull(user.getUserId())).thenReturn(Optional.of(user));
-        when(jwtTokenProvider.createAccessToken(any(), any(), any())).thenReturn("new-access-token");
+        when(jwtTokenProvider.createAccessToken(any(), any(), any(), any(), any())).thenReturn("new-access-token");
         when(jwtTokenProvider.createRefreshToken(user.getUserId())).thenReturn("new-refresh-token");
         when(jwtTokenProvider.getRefreshTokenTtl()).thenReturn(Duration.ofDays(14));
         when(refreshTokenStore.rotate(
@@ -120,6 +124,9 @@ class AuthServiceTest {
 
         assertThat(response.getAccessToken()).isEqualTo("new-access-token");
         assertThat(response.getRefreshToken()).isEqualTo("new-refresh-token");
+        verify(jwtTokenProvider).createAccessToken(
+                user.getUserId(), user.getUsername(), user.getRole(),
+                user.getHubId(), user.getCompanyId());
     }
 
     @Test
@@ -128,7 +135,7 @@ class AuthServiceTest {
         User user = user(ApprovalStatus.APPROVED);
         when(jwtTokenProvider.getUserIdFromRefreshToken("old-refresh-token")).thenReturn(user.getUserId());
         when(userRepository.findByUserIdAndDeletedAtIsNull(user.getUserId())).thenReturn(Optional.of(user));
-        when(jwtTokenProvider.createAccessToken(any(), any(), any())).thenReturn("new-access-token");
+        when(jwtTokenProvider.createAccessToken(any(), any(), any(), any(), any())).thenReturn("new-access-token");
         when(jwtTokenProvider.createRefreshToken(user.getUserId())).thenReturn("new-refresh-token");
         when(jwtTokenProvider.getRefreshTokenTtl()).thenReturn(Duration.ofDays(14));
         when(refreshTokenStore.rotate(any(), any(), any(), any())).thenReturn(false);
@@ -169,11 +176,13 @@ class AuthServiceTest {
         UUID userId = UUID.randomUUID();
         RefreshTokenRequest request = refreshTokenRequest("refresh-token");
         when(jwtTokenProvider.getUserIdFromRefreshToken("refresh-token")).thenReturn(userId);
-        when(refreshTokenStore.revoke(userId, "refresh-token")).thenReturn(true);
+        when(refreshTokenStore.revokeAndBlacklistAccessToken(
+                userId, "refresh-token", "access-token-id", 123456789L)).thenReturn(true);
 
-        authService.logout(request);
+        authService.logout(request, userId, "access-token-id", 123456789L);
 
-        verify(refreshTokenStore).revoke(userId, "refresh-token");
+        verify(refreshTokenStore).revokeAndBlacklistAccessToken(
+                userId, "refresh-token", "access-token-id", 123456789L);
     }
 
     @Test
@@ -181,11 +190,29 @@ class AuthServiceTest {
         UUID userId = UUID.randomUUID();
         RefreshTokenRequest request = refreshTokenRequest("refresh-token");
         when(jwtTokenProvider.getUserIdFromRefreshToken("refresh-token")).thenReturn(userId);
-        when(refreshTokenStore.revoke(userId, "refresh-token")).thenReturn(false);
+        when(refreshTokenStore.revokeAndBlacklistAccessToken(
+                userId, "refresh-token", "access-token-id", 123456789L)).thenReturn(false);
 
-        assertThatThrownBy(() -> authService.logout(request))
+        assertThatThrownBy(() -> authService.logout(
+                request, userId, "access-token-id", 123456789L))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+    }
+
+    @Test
+    void accessTokenAndRefreshTokenUsersMustMatchAtLogout() {
+        UUID accessTokenUserId = UUID.randomUUID();
+        UUID refreshTokenUserId = UUID.randomUUID();
+        RefreshTokenRequest request = refreshTokenRequest("refresh-token");
+        when(jwtTokenProvider.getUserIdFromRefreshToken("refresh-token")).thenReturn(refreshTokenUserId);
+
+        assertThatThrownBy(() -> authService.logout(
+                request, accessTokenUserId, "access-token-id", 123456789L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+
+        verify(refreshTokenStore, never()).revokeAndBlacklistAccessToken(
+                any(), any(), any(), anyLong());
     }
 
     @Test
@@ -206,7 +233,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
-        verify(jwtTokenProvider, never()).createAccessToken(any(), any(), any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -219,7 +246,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
-        verify(jwtTokenProvider, never()).createAccessToken(any(), any(), any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(), any(), any(), any());
     }
 
     private void assertApprovalStatusCannotLogin(ApprovalStatus status) {
@@ -231,7 +258,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ACCESS_DENIED));
-        verify(jwtTokenProvider, never()).createAccessToken(any(), any(), any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(), any(), any(), any());
     }
 
     private void assertInvalidSignup(SignupRequest request) {
