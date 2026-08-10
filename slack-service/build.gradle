@@ -11,6 +11,10 @@ dependencies {
     // 서비스 디스커버리
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
 
+    // 외부 API(슬랙 Webhook / Gemini) 일시 오류에 대한 즉시 재시도
+    implementation 'org.springframework.retry:spring-retry'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+
     // API 문서
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
 

@@ -82,11 +82,29 @@ public class AiMessage extends BaseEntity {
     }
 
     /**
-     * A4 재생성 진입 시 호출. 이미 성공했거나 한도를 넘겼으면 409로 거부한다.
+     * 주문 취소에 따른 무효화. 아직 발송 전(PENDING)인 건의 슬랙 발송을 억제한다.
+     * 이미 SUCCESS 로 알림이 나간 건은 되돌릴 수 없으므로 상태를 바꾸지 않고,
+     * 호출 측에서 취소 알림을 별도로 발송한다.
+     */
+    public void cancel() {
+        if (this.status == AiCallStatus.PENDING || this.status == AiCallStatus.FAILED) {
+            this.status = AiCallStatus.CANCELLED;
+        }
+    }
+
+    public boolean isCancelled() {
+        return this.status == AiCallStatus.CANCELLED;
+    }
+
+    /**
+     * A4 재생성 진입 시 호출. 이미 성공했거나 취소됐거나 한도를 넘겼으면 409로 거부한다.
      */
     public void increaseRetry() {
         if (this.status == AiCallStatus.SUCCESS) {
             throw new BusinessException(MessageErrorCode.AI_MESSAGE_ALREADY_SUCCEEDED);
+        }
+        if (this.status == AiCallStatus.CANCELLED) {
+            throw new BusinessException(MessageErrorCode.AI_MESSAGE_CANCELLED);
         }
         if (!canRetry()) {
             throw new BusinessException(MessageErrorCode.AI_RETRY_LIMIT_EXCEEDED);
