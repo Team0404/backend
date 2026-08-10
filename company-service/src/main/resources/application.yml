@@ -5,7 +5,7 @@ spring:
   application:
     name: company-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sparta_logistics}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:company_service}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:1234}
     driver-class-name: org.postgresql.Driver
@@ -15,9 +15,6 @@ spring:
     show-sql: ${SHOW_SQL:true}
     properties:
       hibernate:
-        default_schema: ${DB_SCHEMA:company_service}
-        hbm2ddl:
-          create_namespaces: true
         format_sql: true
 
 eureka:
