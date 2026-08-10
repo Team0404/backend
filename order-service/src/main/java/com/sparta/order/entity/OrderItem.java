@@ -27,6 +27,12 @@ public class OrderItem extends BaseEntity {
     @Column(name = "product_id", nullable = false)
     private UUID productId;
 
+    @Column(name = "product_name", nullable = false, length = 255)
+    private String productName;
+
+    @Column(name = "unit_price", nullable = false)
+    private Long unitPrice;
+
     @Column(nullable = false)
     private Integer quantity;
 

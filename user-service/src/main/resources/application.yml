@@ -31,7 +31,7 @@ spring:
 # JWT 발급 시크릿 (gateway 검증과 반드시 동일 값)
 jwt:
   secret: ${JWT_SECRET:local-dev-jwt-secret-please-override-in-production-0123456789}
-  access-expiration: ${JWT_ACCESS_EXPIRATION:3600000}   # 1시간(ms)
+  access-expiration: ${JWT_ACCESS_EXPIRATION:900000}   # 15분(ms)
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:1209600000} # 14일(ms)
 
 eureka:

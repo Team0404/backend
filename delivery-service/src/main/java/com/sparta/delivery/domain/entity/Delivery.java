@@ -5,6 +5,7 @@ import com.sparta.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Table(name = "p_deliveries")
@@ -45,6 +46,21 @@ public class Delivery extends BaseEntity {
     @Column(name = "company_delivery_manager_id")
     private UUID companyDeliveryManagerId;
 
+    @Column(name = "cancel_reason")
+    private String cancelReason;
+
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+
+    public void cancel(String cancelReason){
+        status.validateTransit(DeliveryStatusEnum.CANCELLED);
+        this.status = DeliveryStatusEnum.CANCELLED;
+        this.cancelReason = cancelReason;
+        this.cancelledAt = LocalDateTime.now();
+        // 아직 수행되지 않은 업체 배송이므로 담당자 배정을 해제한다.
+        this.companyDeliveryManagerId = null;
+    }
+
     public void update(
             String status,
             String deliveryAddress,
@@ -53,7 +69,11 @@ public class Delivery extends BaseEntity {
             UUID companyDeliveryManagerId
     ){
         if(status != null && !status.isBlank()){
-            this.status = DeliveryStatusEnum.fromString(status);
+            DeliveryStatusEnum next = DeliveryStatusEnum.fromString(status);
+            if(next != this.status){
+                this.status.validateTransit(next);
+                this.status = next;
+            }
         }
         if(deliveryAddress != null && !deliveryAddress.isBlank()){
             this.deliveryAddress = deliveryAddress;
