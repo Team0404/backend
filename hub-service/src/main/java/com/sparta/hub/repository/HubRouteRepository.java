@@ -53,7 +53,18 @@ public interface HubRouteRepository extends JpaRepository<HubRoute, UUID> {
             @Param("hubId") UUID hubId
     );
 
-
+    @Query("""
+    SELECT hr
+    FROM HubRoute hr
+    JOIN FETCH hr.departureHub dh
+    JOIN FETCH hr.arrivalHub ah
+    WHERE hr.deletedAt IS NULL
+      AND dh.deletedAt IS NULL
+      AND ah.deletedAt IS NULL
+      AND dh.status = com.sparta.hub.entity.enums.HubStatus.ACTIVE
+      AND ah.status = com.sparta.hub.entity.enums.HubStatus.ACTIVE
+""")
+    List<HubRoute> findAllAvailableRoutes();
 
 
 

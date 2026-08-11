@@ -20,9 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,27 +50,9 @@ public class HubRouteService {
     public List<HubRouteResponse> findAllHubRoutes(){
 
 
-        return hubRouteRepository.findAll().stream()
+        return hubRouteRepository.findAllByDeletedAtIsNull().stream()
                 .map(HubRouteResponse::new)
                 .collect(Collectors.toCollection(ArrayList::new));
-    }
-
-    // P2P HubRoutePath
-    @Cacheable(cacheNames = "directRoutes",
-            key = "#departureHubId.toString() + ':' + #arrivalHubId.toString()")
-    @Transactional(readOnly = true)
-    public HubRouteResponse findRoute( UUID departureHubId,
-                                       UUID arrivalHubId){
-        if(departureHubId.equals(arrivalHubId)) {
-            throw new BusinessException(HubRouteErrorCode.SAME_DEPARTURE_AND_ARRIVAL_HUB);
-
-        }
-
-        HubRoute route = hubRouteRepository.findAllActiveRoutes(departureHubId,arrivalHubId)
-                .orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
-
-
-        return new HubRouteResponse(route);
     }
 
     // 허브 출발,도착 경로 조회
@@ -81,27 +61,129 @@ public class HubRouteService {
     @Transactional(readOnly = true)
     public HubRoutePathResponse findPath(UUID departureHubId,
                                          UUID arrivalHubId) {
-        if(departureHubId.equals(arrivalHubId)){
-            throw new BusinessException(HubRouteErrorCode.HUB_ROUTE_NOT_FOUND);
+        if (departureHubId.equals(arrivalHubId)) {
+            throw new BusinessException(
+                    HubRouteErrorCode.SAME_DEPARTURE_AND_ARRIVAL_HUB
+            );
         }
 
-        HubRoute hubRoute =
-                hubRouteRepository.findAllActiveRoutes(departureHubId,arrivalHubId)
-                        .orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
+        Hub departureHub =
+                hubRepository.findByHubIdAndStatusAndDeletedAtIsNull(
+                                departureHubId,
+                                HubStatus.ACTIVE
+                        )
+                        .orElseThrow(() ->
+                                new BusinessException(
+                                        HubRouteErrorCode.DEPARTURE_HUB_INACTIVE
+                                ));
 
-        HubRouteResponse routeResponse =
-                new HubRouteResponse(hubRoute);
+        Hub arrivalHub =
+                hubRepository.findByHubIdAndStatusAndDeletedAtIsNull(
+                                arrivalHubId,
+                                HubStatus.ACTIVE
+                        )
+                        .orElseThrow(() ->
+                                new BusinessException(
+                                        HubRouteErrorCode.ARRIVAL_HUB_INACTIVE
+                                ));
+
+        List<HubRoute> routes =
+                findRoutesByBfs(departureHubId, arrivalHubId);
+
+        List<HubRouteResponse> routeResponses = routes.stream()
+                .map(HubRouteResponse::new)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        int totalDurationMinutes = routes.stream()
+                .mapToInt(HubRoute::getDurationMinutes)
+                .sum();
+
+        BigDecimal totalDistanceKm = routes.stream()
+                .map(HubRoute::getDistanceKm)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return new HubRoutePathResponse(
-                hubRoute.getDepartureHub().getHubId(),
-                hubRoute.getDepartureHub().getName(),
-                hubRoute.getArrivalHub().getHubId(),
-                hubRoute.getArrivalHub().getName(),
-                List.of(routeResponse),
-                hubRoute.getDurationMinutes(),
-                hubRoute.getDistanceKm()
+                departureHub.getHubId(),
+                departureHub.getName(),
+                arrivalHub.getHubId(),
+                arrivalHub.getName(),
+                routeResponses,
+                totalDurationMinutes,
+                totalDistanceKm
         );
 
+    }
+
+    // Hub and Spoke 방식
+    private List<HubRoute> findRoutesByBfs(
+            UUID departureHubId,
+            UUID arrivalHubId
+    ) {
+        List<HubRoute> allRoutes =
+                hubRouteRepository.findAllAvailableRoutes();
+
+        // 출발 허브 ID를 기준으로 연결된 경로 분류
+        Map<UUID, List<HubRoute>> graph = allRoutes.stream()
+                .collect(Collectors.groupingBy(
+                        route -> route.getDepartureHub().getHubId()
+                ));
+
+        Queue<UUID> queue = new ArrayDeque<>();
+        Set<UUID> visited = new HashSet<>();
+
+        // 특정 허브까지 어떤 경로를 통해 왔는지 저장
+        Map<UUID, HubRoute> previousRoutes = new HashMap<>();
+
+        queue.offer(departureHubId);
+        visited.add(departureHubId);
+
+        while (!queue.isEmpty()) {
+            UUID currentHubId = queue.poll();
+
+            if (currentHubId.equals(arrivalHubId)) {
+                break;
+            }
+
+            List<HubRoute> connectedRoutes =
+                    graph.getOrDefault(currentHubId, List.of());
+
+            for (HubRoute route : connectedRoutes) {
+                UUID nextHubId =
+                        route.getArrivalHub().getHubId();
+
+                if (visited.add(nextHubId)) {
+                    previousRoutes.put(nextHubId, route);
+                    queue.offer(nextHubId);
+                }
+            }
+        }
+
+        if (!visited.contains(arrivalHubId)) {
+            throw new BusinessException(
+                    HubRouteErrorCode.HUB_ROUTE_PATH_NOT_FOUND
+            );
+        }
+
+        // 도착 허브부터 출발 허브까지 역으로 경로 복원
+        List<HubRoute> routes = new ArrayList<>();
+        UUID currentHubId = arrivalHubId;
+
+        while (!currentHubId.equals(departureHubId)) {
+            HubRoute route = previousRoutes.get(currentHubId);
+
+            if (route == null) {
+                throw new BusinessException(
+                        HubRouteErrorCode.HUB_ROUTE_PATH_NOT_FOUND
+                );
+            }
+
+            routes.add(route);
+            currentHubId = route.getDepartureHub().getHubId();
+        }
+
+        Collections.reverse(routes);
+
+        return routes;
     }
 
 
@@ -115,6 +197,7 @@ public class HubRouteService {
             @CacheEvict(cacheNames = "directRoutes", allEntries = true),
             @CacheEvict(cacheNames = "routePaths", allEntries = true)
     })
+    @Transactional
     public HubRouteResponse createHubRoute(HubRouteCreateRequest request){
         Hub departureHubId =
                 hubRepository.findByHubIdAndStatusAndDeletedAtIsNull(
