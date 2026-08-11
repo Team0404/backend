@@ -17,7 +17,7 @@ public class HubRoute extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    private UUID hubRouteId;
 
     // 출발 허브
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

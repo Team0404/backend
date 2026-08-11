@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public interface HubRepository extends JpaRepository<Hub, UUID> {
     List<Hub> findAllByDeletedAtIsNull();
-    Optional<Hub> findByIdAndDeletedAtIsNull(UUID id);
+    Optional<Hub> findByHubIdAndDeletedAtIsNull(UUID id);
 
 
 

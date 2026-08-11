@@ -31,9 +31,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -57,6 +55,7 @@ public class OrderServiceImpl implements OrderService {
         validateSupplierCompanyAccess(context, company.id());
 
         UUID originHubId = null;
+        Map<UUID, ProductResponse> productResponses = new LinkedHashMap<>();
         // 배송 서비스가 AI 발송시한 프롬프트에 넣을 상품 요약 (예: "마른 오징어 50개, 김 10개")
         List<String> productSummaries = new ArrayList<>();
 
@@ -65,6 +64,7 @@ public class OrderServiceImpl implements OrderService {
                     productClient.getProduct(itemRequest.productId()),
                     "상품 정보를 조회할 수 없습니다."
             );
+            productResponses.put(itemRequest.productId(), product);
 
             if (originHubId == null) {
                 originHubId = product.hubId();
@@ -87,10 +87,13 @@ public class OrderServiceImpl implements OrderService {
 
         try {
             for (CreateOrderRequest.OrderItemRequest itemRequest : request.orderItems()) {
+                ProductResponse product = productResponses.get(itemRequest.productId());
                 productClient.decreaseStock(itemRequest.productId(), itemRequest.quantity());
 
                 OrderItem orderItem = OrderItem.builder()
                         .productId(itemRequest.productId())
+                        .productName(product.name())
+                        .unitPrice(product.price())
                         .quantity(itemRequest.quantity())
                         .build();
 
