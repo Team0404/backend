@@ -1,13 +1,11 @@
 package com.sparta.company.company.service;
 
+import com.sparta.common.dto.UserInfoResponse;
 import com.sparta.common.entity.UserRole;
 import com.sparta.common.exception.BusinessException;
-import com.sparta.common.response.ApiResponse;
 import com.sparta.common.security.UserPrincipal;
-import com.sparta.company.client.hub.HubClient;
-import com.sparta.company.client.hub.HubResponse;
-import com.sparta.company.client.user.UserClient;
-import com.sparta.company.client.user.UserResponse;
+import com.sparta.company.client.hub.HubQueryService;
+import com.sparta.company.client.user.UserQueryService;
 import com.sparta.company.company.dto.request.CompanyCreateRequest;
 import com.sparta.company.company.dto.request.CompanyUpdateRequest;
 import com.sparta.company.company.dto.response.CompanyResponse;
@@ -31,13 +29,17 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
 /**
  * 업체(Company) CRUD 서비스 계층 단위 테스트.
- * Repository/FeignClient는 전부 mock 처리해서 DB, Eureka 없이 빠르게 실행된다.
+ * Repository/FeignClient는 전부 mock 처리해서 DB, Eureka, Redis 없이 빠르게 실행된다.
+ * (HubClient/UserClient를 직접 mock하지 않고, 그걸 감싸는 캐싱 계층인
+ *  HubQueryService/UserQueryService를 mock한다 - 캐싱 자체는 이 테스트 범위 밖)
+ *
+ * ⚠️ UserInfoResponse 인스턴스화 방식(생성자/빌더)은 실제 common 클래스 정의를 못 봐서
+ *    Lombok @Builder가 있다고 가정하고 작성했습니다.
  */
 @ExtendWith(MockitoExtension.class)
 class CompanyServiceTest {
@@ -49,9 +51,9 @@ class CompanyServiceTest {
     @Mock
     private ProductRepository productRepository;
     @Mock
-    private HubClient hubClient;
+    private HubQueryService hubQueryService;
     @Mock
-    private UserClient userClient;
+    private UserQueryService userQueryService;
 
     @InjectMocks
     private CompanyService companyService;
@@ -74,10 +76,7 @@ class CompanyServiceTest {
         CompanyCreateRequest request = new CompanyCreateRequest(
                 "일산 건조식품 가공업체", CompanyType.PRODUCER, hubId, "경기도 고양시 일산동구 ...");
 
-        given(hubClient.getHub(hubId))
-                .willReturn(ApiResponse.success(
-                        new HubResponse(hubId, "경기 북부 센터", "경기도 고양시...")
-                        ));
+        given(hubQueryService.existsHub(hubId)).willReturn(true);
 
         Company saved = Company.builder()
                 .name(request.name())
@@ -103,8 +102,7 @@ class CompanyServiceTest {
         CompanyCreateRequest request = new CompanyCreateRequest(
                 "테스트 업체", CompanyType.RECEIVER, hubId, "주소");
 
-        given(hubClient.getHub(any()))
-                .willThrow(mock(feign.FeignException.NotFound.class));
+        given(hubQueryService.existsHub(any(UUID.class))).willReturn(false);
 
         // when & then
         assertThatThrownBy(() -> companyService.create(request, masterUser))
@@ -181,9 +179,14 @@ class CompanyServiceTest {
                 .willReturn(Optional.of(company));
 
         // 본인 소속 업체 ID가 지금 수정하려는 companyId와 다름
-        given(userClient.getUser(supplierManager.getUserId().toString()))
-                .willReturn(new UserResponse(
-                        supplierManager.getUserId(), "supplier", "SUPPLIER_MANAGER", null, UUID.randomUUID()));
+        UserInfoResponse otherCompanyUser = UserInfoResponse.builder()
+                .userId(supplierManager.getUserId())
+                .username("supplier")
+                .role(UserRole.SUPPLIER_MANAGER)
+                .companyId(UUID.randomUUID()) // 지금 수정 대상 companyId와 다른 값
+                .build();
+        given(userQueryService.getUserInfo(supplierManager.getUserId()))
+                .willReturn(otherCompanyUser);
 
         CompanyUpdateRequest request = new CompanyUpdateRequest("바꾸려는 이름", null, null, null);
 
