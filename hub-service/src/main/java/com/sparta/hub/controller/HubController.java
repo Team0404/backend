@@ -1,6 +1,7 @@
 package com.sparta.hub.controller;
 
 import com.sparta.common.response.ApiResponse;
+import com.sparta.common.security.CurrentUser;
 import com.sparta.common.security.UserPrincipal;
 import com.sparta.hub.dto.request.HubCreateRequest;
 import com.sparta.hub.dto.request.HubUpdateRequest;
@@ -83,7 +84,7 @@ public class HubController {
             )
     })
     @PostMapping
-    @PreAuthorize("hasAnyRole('MASTER')")
+    @PreAuthorize("hasRole('MASTER')")
     public ResponseEntity<ApiResponse<HubResponse>> createHub(
             @Valid @RequestBody HubCreateRequest request) {
        HubResponse response = hubService.createHub(request);
@@ -109,7 +110,7 @@ public class HubController {
             )
     })
     @PatchMapping("/{hubId}")
-    @PreAuthorize("hasAnyRole('MASTER')")
+    @PreAuthorize("hasRole('MASTER')")
     public ApiResponse<Void> updateHub(@PathVariable UUID hubId,
                                        @Valid @RequestBody HubUpdateRequest request) {
 
@@ -133,9 +134,10 @@ public class HubController {
             )
     })
     @DeleteMapping("/{hubId}")
-    @PreAuthorize("hasAnyRole('Master')")
-    public ApiResponse<Void> deleteHub(@PathVariable UUID hubId) {
-        hubService.deleteHub(hubId);
+    @PreAuthorize("hasRole('MASTER')")
+    public ApiResponse<Void> deleteHub(@PathVariable UUID hubId,
+                                       @CurrentUser UserPrincipal userPrincipal) {
+        hubService.requestDeactivation(hubId, userPrincipal.getUserId());
 
         return ApiResponse.success("허브 삭제 완료", null);
 

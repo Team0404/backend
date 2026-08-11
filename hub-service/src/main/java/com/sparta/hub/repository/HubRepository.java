@@ -22,6 +22,12 @@ public interface HubRepository extends JpaRepository<Hub, UUID> {
     // "신규 배송 경로"에 사용 할 수 있는 허브만 조회
     List<Hub> findAllByStatusAndDeletedAtIsNull(HubStatus status);
 
+    // 신규 경로에는 ACTIVE 허브만 허용
+    Optional<Hub> findByHubIdAndStatusAndDeletedAtIsNull(
+            UUID hubId,
+            HubStatus status
+    );
+
 
 
 

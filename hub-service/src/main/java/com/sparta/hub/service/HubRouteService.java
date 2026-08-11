@@ -6,12 +6,15 @@ import com.sparta.hub.dto.response.HubRoutePathResponse;
 import com.sparta.hub.dto.response.HubRouteResponse;
 import com.sparta.hub.entity.Hub;
 import com.sparta.hub.entity.HubRoute;
+import com.sparta.hub.entity.enums.HubStatus;
 import com.sparta.hub.exception.HubErrorCode;
 import com.sparta.hub.exception.HubRouteErrorCode;
 import com.sparta.hub.repository.HubRepository;
 import com.sparta.hub.repository.HubRouteRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -105,14 +108,34 @@ public class HubRouteService {
 
 
     // 허브 이동 정보 생성
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "hubRoutes", allEntries = true),
+            @CacheEvict(cacheNames = "hubRouteList", allEntries = true),
+            @CacheEvict(cacheNames = "directRoutes", allEntries = true),
+            @CacheEvict(cacheNames = "routePaths", allEntries = true)
+    })
     public HubRouteResponse createHubRoute(HubRouteCreateRequest request){
-        Hub departureHubId = hubRepository.findByHubIdAndDeletedAtIsNull
-                (request.getDepartureHubId()).
-                orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
+        Hub departureHubId =
+                hubRepository.findByHubIdAndStatusAndDeletedAtIsNull(
+                                request.getDepartureHubId(),
+                                HubStatus.ACTIVE
+                        )
+                        .orElseThrow(() ->
+                                new BusinessException(
+                                        HubRouteErrorCode.DEPARTURE_HUB_INACTIVE
+                                ));
+
+        Hub arrivalHubId =
+                hubRepository.findByHubIdAndStatusAndDeletedAtIsNull(
+                                request.getArrivalHubId(),
+                                HubStatus.ACTIVE
+                        )
+                        .orElseThrow(() ->
+                                new BusinessException(
+                                        HubRouteErrorCode.ARRIVAL_HUB_INACTIVE
+                                ));
 
 
-        Hub arrivalHubId = hubRepository.findByHubIdAndDeletedAtIsNull(request.getArrivalHubId()).
-                orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
 
         if(departureHubId.getHubId().equals(arrivalHubId.getHubId())){
             throw new IllegalArgumentException(
@@ -130,6 +153,12 @@ public class HubRouteService {
     }
 
     // 허브 라우터 수정
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "hubRoutes", allEntries = true),
+            @CacheEvict(cacheNames = "hubRouteList", allEntries = true),
+            @CacheEvict(cacheNames = "directRoutes", allEntries = true),
+            @CacheEvict(cacheNames = "routePaths", allEntries = true)
+    })
     @Transactional
     public void hubRouteUpdate(UUID routeId){
         HubRoute hubRoute = hubRouteRepository.findByHubRouteIdAndDeletedAtIsNull(routeId)
@@ -140,6 +169,12 @@ public class HubRouteService {
     }
 
     // 허브 라우터 삭제
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "hubRoutes", allEntries = true),
+            @CacheEvict(cacheNames = "hubRouteList", allEntries = true),
+            @CacheEvict(cacheNames = "directRoutes", allEntries = true),
+            @CacheEvict(cacheNames = "routePaths", allEntries = true)
+    })
     @Transactional
     public void deleteHubRoute(UUID id){
         HubRoute hubroute = hubRouteRepository.findByHubRouteIdAndDeletedAtIsNull(id)

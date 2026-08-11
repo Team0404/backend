@@ -48,7 +48,7 @@ public class HubRouteController {
             )
     })
     @PostMapping()
-    @PreAuthorize("hasAnyRole('MASTER')")
+    @PreAuthorize("hasRole('MASTER')")
     public ResponseEntity<ApiResponse<HubRouteResponse>> createHubRouter(
             @Valid @RequestBody HubRouteCreateRequest request
     ){
@@ -113,7 +113,7 @@ public class HubRouteController {
 
     // 이동 정보 수정
     @PatchMapping("/{routeId}")
-    @PreAuthorize("hasAnyRole('MASTER')")
+    @PreAuthorize("hasRole('MASTER')")
     public ApiResponse<Void> updateHubRoute(@PathVariable UUID routeId){
         hubRouteService.hubRouteUpdate(routeId);
         return ApiResponse.success("허브 라우터 수정 완료", null);
@@ -122,7 +122,7 @@ public class HubRouteController {
 
     //이동 정보 삭제
     @DeleteMapping("/{routeId}")
-    @PreAuthorize("hasAnyRole('MASTER')")
+    @PreAuthorize("hasRole('MASTER')")
     public ApiResponse<Void> deleteHubRoute(@PathVariable UUID routeId){
         hubRouteService.deleteHubRoute(routeId);
 
