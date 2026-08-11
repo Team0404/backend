@@ -251,7 +251,7 @@ class OrderControllerTest {
                 "요청사항",
                 LocalDateTime.of(2026, 8, 6, 12, 0),
                 OrderStatus.READY,
-                List.of(new OrderItemResponse(UUID.randomUUID(), UUID.randomUUID(), 2)),
+                List.of(new OrderItemResponse(UUID.randomUUID(), UUID.randomUUID(), "상품명", 12000L, 2)),
                 LocalDateTime.of(2026, 8, 5, 9, 0),
                 UUID.randomUUID(),
                 LocalDateTime.of(2026, 8, 5, 10, 0),

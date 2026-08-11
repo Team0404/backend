@@ -33,7 +33,8 @@ public enum MessageErrorCode implements ErrorCodeIfs {
     AI_RESPONSE_PARSE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "M205", "AI 응답에서 최종 발송 시한을 파싱하지 못했습니다."),
     AI_MESSAGE_ALREADY_EXISTS(HttpStatus.CONFLICT, "M206", "이미 발송 시한이 생성된 주문입니다."),
     AI_API_KEY_NOT_CONFIGURED(HttpStatus.INTERNAL_SERVER_ERROR, "M207", "AI API 키 설정이 존재하지 않습니다."),
-    AI_MESSAGE_ALREADY_DELETED(HttpStatus.CONFLICT, "M208", "이미 삭제된 AI 메시지 이력입니다.");
+    AI_MESSAGE_ALREADY_DELETED(HttpStatus.CONFLICT, "M208", "이미 삭제된 AI 메시지 이력입니다."),
+    AI_MESSAGE_CANCELLED(HttpStatus.CONFLICT, "M209", "주문 취소로 무효화된 AI 메시지입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

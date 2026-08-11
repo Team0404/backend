@@ -34,6 +34,16 @@ public class AiMessage extends BaseEntity {
     @Column(name = "delivery_id", nullable = false)
     private UUID deliveryId;
 
+    /**
+     * 알림을 받을 발송 허브 담당자의 슬랙 ID.
+     *
+     * <p>배송의 {@code recipient_slack_id}(수령 고객)와는 다른 대상이다. A4 재생성 성공 시
+     * 슬랙을 재발송하려면 수신자를 알아야 하는데, A1이 AI 호출 단계에서 실패하면 슬랙 이력이
+     * 아예 생기지 않아 이력에서 역추적할 수 없다. 그래서 AI 로그 자체에 보관한다.
+     */
+    @Column(name = "manager_slack_id", nullable = false, length = 100)
+    private String managerSlackId;
+
     @Column(name = "request_prompt", nullable = false, columnDefinition = "TEXT")
     private String requestPrompt;
 
@@ -82,11 +92,29 @@ public class AiMessage extends BaseEntity {
     }
 
     /**
-     * A4 재생성 진입 시 호출. 이미 성공했거나 한도를 넘겼으면 409로 거부한다.
+     * 주문 취소에 따른 무효화. 아직 발송 전(PENDING)인 건의 슬랙 발송을 억제한다.
+     * 이미 SUCCESS 로 알림이 나간 건은 되돌릴 수 없으므로 상태를 바꾸지 않고,
+     * 호출 측에서 취소 알림을 별도로 발송한다.
+     */
+    public void cancel() {
+        if (this.status == AiCallStatus.PENDING || this.status == AiCallStatus.FAILED) {
+            this.status = AiCallStatus.CANCELLED;
+        }
+    }
+
+    public boolean isCancelled() {
+        return this.status == AiCallStatus.CANCELLED;
+    }
+
+    /**
+     * A4 재생성 진입 시 호출. 이미 성공했거나 취소됐거나 한도를 넘겼으면 409로 거부한다.
      */
     public void increaseRetry() {
         if (this.status == AiCallStatus.SUCCESS) {
             throw new BusinessException(MessageErrorCode.AI_MESSAGE_ALREADY_SUCCEEDED);
+        }
+        if (this.status == AiCallStatus.CANCELLED) {
+            throw new BusinessException(MessageErrorCode.AI_MESSAGE_CANCELLED);
         }
         if (!canRetry()) {
             throw new BusinessException(MessageErrorCode.AI_RETRY_LIMIT_EXCEEDED);
