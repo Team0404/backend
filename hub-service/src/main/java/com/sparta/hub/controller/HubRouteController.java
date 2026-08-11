@@ -3,14 +3,18 @@ package com.sparta.hub.controller;
 import com.sparta.common.response.ApiResponse;
 import com.sparta.hub.dto.request.HubRouteCreateRequest;
 import com.sparta.hub.dto.response.HubResponse;
+import com.sparta.hub.dto.response.HubRoutePathResponse;
 import com.sparta.hub.dto.response.HubRouteResponse;
 import com.sparta.hub.service.HubRouteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -44,11 +48,15 @@ public class HubRouteController {
             )
     })
     @PostMapping()
-    public ResponseEntity<ApiResponse<HubRouteCreateRequest>> createHubRouter(){
+    @PreAuthorize("hasAnyRole('MASTER')")
+    public ResponseEntity<ApiResponse<HubRouteResponse>> createHubRouter(
+            @Valid @RequestBody HubRouteCreateRequest request
+    ){
 
+        HubRouteResponse response = hubRouteService.createHubRoute(request);
 
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResponse.success("허브 이동 경로 생성 완료",null));
+                    .body(ApiResponse.success("허브 이동 경로 생성 완료",response));
 
     }
 
@@ -97,12 +105,15 @@ public class HubRouteController {
 
     // 출발,도착 경로 조회
     @GetMapping("/path")
-    public void hubRoutePath(@RequestParam UUID dhId, @RequestParam UUID arId){
-        hubRouteService.findPath(dhId,arId);
+    public ApiResponse<HubRoutePathResponse> hubRoutePath(@RequestParam UUID dhId, @RequestParam UUID arId){
+        HubRoutePathResponse response = hubRouteService.findPath(dhId,arId);
+
+        return ApiResponse.success("출발,도착 경로 조회 성공", response);
     }
 
     // 이동 정보 수정
     @PatchMapping("/{routeId}")
+    @PreAuthorize("hasAnyRole('MASTER')")
     public ApiResponse<Void> updateHubRoute(@PathVariable UUID routeId){
         hubRouteService.hubRouteUpdate(routeId);
         return ApiResponse.success("허브 라우터 수정 완료", null);
@@ -111,6 +122,7 @@ public class HubRouteController {
 
     //이동 정보 삭제
     @DeleteMapping("/{routeId}")
+    @PreAuthorize("hasAnyRole('MASTER')")
     public ApiResponse<Void> deleteHubRoute(@PathVariable UUID routeId){
         hubRouteService.deleteHubRoute(routeId);
 

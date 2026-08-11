@@ -12,8 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -37,13 +39,17 @@ public class HubService {
     }
 
     // 허브 전체 조회
+    @Cacheable(
+            cacheNames = "hubList",
+            key = "'all'"
+    )
     @Transactional(readOnly = true)
     public List<HubResponse> findAllHubs(){
         List<Hub> hub = hubRepository.findAllByDeletedAtIsNull();
 
         List<HubResponse> resHub = hub.stream()
                 .map(HubResponse::new)
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
 
         return resHub;
     }
@@ -55,7 +61,8 @@ public class HubService {
         Hub hub = new Hub(hubRequest.getName()
                 ,hubRequest.getAddress()
                 ,hubRequest.getLatitude(),
-                hubRequest.getLongitude());
+                hubRequest.getLongitude(),
+                hubRequest.getHubType());
 
         Hub savedHub = hubRepository.save(hub);
 

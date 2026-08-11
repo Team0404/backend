@@ -14,6 +14,12 @@ public interface HubRouteRepository extends JpaRepository<HubRoute, UUID> {
     List<HubRoute> findAllByDeletedAtIsNull();
     Optional<HubRoute> findByHubRouteIdAndDeletedAtIsNull(UUID id);
 
+    List<HubRoute>
+    findAllByDepartureHub_HubIdOrArrivalHub_HubIdAndDeletedAtIsNull(
+            UUID departureHubId,
+            UUID arrivalHubId
+    );
+
 
     //
     @Query("""
@@ -26,9 +32,31 @@ public interface HubRouteRepository extends JpaRepository<HubRoute, UUID> {
         AND hr.deletedAt IS NULL
         AND dh.deletedAt IS NULL
         AND ah.deletedAt IS NULL
-""")
+        """)
     Optional<HubRoute> findAllActiveRoutes(
             @Param("departureHubId") UUID departureHubId,
             @Param("arrivalHubId") UUID arrivalHubId);
 
+    // 허브 활성 상태 조회
+    @Query("""
+    SELECT hr
+    FROM HubRoute hr
+    WHERE (
+        hr.departureHub.hubId = :hubId
+        OR hr.arrivalHub.hubId = :hubId
+    )
+    AND hr.deletedAt IS NULL
+        """)
+    List<HubRoute> findAllActiveRoutesByHubId(
+            @Param("hubId") UUID hubId
+    );
+
+
+
+
+
+
+
 }
+
+

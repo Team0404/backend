@@ -18,6 +18,14 @@ public class RedisCacheConfig {
 
     @Bean
     public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory){
+
+        GenericJackson2JsonRedisSerializer valueSerializer =
+                GenericJackson2JsonRedisSerializer.builder()
+                        .defaultTyping(true)
+                        .typeHintPropertyName("@class")
+                        .build();
+
+
         RedisCacheConfiguration configuration =
                 RedisCacheConfiguration.defaultCacheConfig()
                         // 10분 후 자동 삭제
@@ -28,13 +36,12 @@ public class RedisCacheConfig {
 
                         // Redis Key 문자열로 저장
                         .serializeKeysWith(RedisSerializationContext.SerializationPair
-                                .fromSerializer(new StringRedisSerializer()
-                                )
+                                .fromSerializer(new StringRedisSerializer())
                         )
 
                         // Redis Value JSON으로 저장
                         .serializeValuesWith(RedisSerializationContext.SerializationPair
-                                .fromSerializer(new GenericJackson2JsonRedisSerializer()));
+                                .fromSerializer(valueSerializer));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(configuration)

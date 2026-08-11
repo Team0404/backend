@@ -11,12 +11,15 @@ import com.sparta.hub.exception.HubRouteErrorCode;
 import com.sparta.hub.repository.HubRepository;
 import com.sparta.hub.repository.HubRouteRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +27,12 @@ public class HubRouteService {
     private final HubRouteRepository hubRouteRepository;
     private final HubRepository hubRepository;
 
+
     // 허브 이동 단건 조회
+    @Cacheable(
+            cacheNames = "hubRoutes",
+            key = "#routeId"
+    )
     @Transactional(readOnly = true)
     public HubRouteResponse findHubRoute(UUID routeId){
         HubRoute hubRoute = hubRouteRepository.
@@ -35,16 +43,19 @@ public class HubRouteService {
     }
 
     // 허브 이동 전체 조회
+    @Cacheable(cacheNames = "hubRouteList",key = "'all'")
     @Transactional(readOnly = true)
     public List<HubRouteResponse> findAllHubRoutes(){
 
 
         return hubRouteRepository.findAll().stream()
                 .map(HubRouteResponse::new)
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     // P2P HubRoutePath
+    @Cacheable(cacheNames = "directRoutes",
+            key = "#departureHubId.toString() + ':' + #arrivalHubId.toString()")
     @Transactional(readOnly = true)
     public HubRouteResponse findRoute( UUID departureHubId,
                                        UUID arrivalHubId){
@@ -61,6 +72,8 @@ public class HubRouteService {
     }
 
     // 허브 출발,도착 경로 조회
+    @Cacheable(cacheNames = "routePaths",
+    key = "#departureHubId.toString() + ':' + #arrivalHubId.toString()")
     @Transactional(readOnly = true)
     public HubRoutePathResponse findPath(UUID departureHubId,
                                          UUID arrivalHubId) {
@@ -92,7 +105,7 @@ public class HubRouteService {
 
 
     // 허브 이동 정보 생성
-    public void createHubRoute(HubRouteCreateRequest request){
+    public HubRouteResponse createHubRoute(HubRouteCreateRequest request){
         Hub departureHubId = hubRepository.findByHubIdAndDeletedAtIsNull
                 (request.getDepartureHubId()).
                 orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
@@ -111,6 +124,8 @@ public class HubRouteService {
                 request.getDurationMinutes(),request.getDistanceKm());
 
         hubRouteRepository.save(route);
+
+        return new HubRouteResponse(route);
 
     }
 
