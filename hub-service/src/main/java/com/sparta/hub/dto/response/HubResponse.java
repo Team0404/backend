@@ -2,11 +2,13 @@ package com.sparta.hub.dto.response;
 
 import com.sparta.hub.entity.Hub;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
 @Getter
+@NoArgsConstructor
 public class HubResponse {
     private UUID id;
     private String name;

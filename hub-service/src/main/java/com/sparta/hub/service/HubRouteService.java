@@ -1,10 +1,13 @@
 package com.sparta.hub.service;
 
+import com.sparta.common.exception.BusinessException;
 import com.sparta.hub.dto.request.HubRouteCreateRequest;
 import com.sparta.hub.dto.response.HubRoutePathResponse;
 import com.sparta.hub.dto.response.HubRouteResponse;
 import com.sparta.hub.entity.Hub;
 import com.sparta.hub.entity.HubRoute;
+import com.sparta.hub.exception.HubErrorCode;
+import com.sparta.hub.exception.HubRouteErrorCode;
 import com.sparta.hub.repository.HubRepository;
 import com.sparta.hub.repository.HubRouteRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +29,7 @@ public class HubRouteService {
     public HubRouteResponse findHubRoute(UUID routeId){
         HubRoute hubRoute = hubRouteRepository.
                 findById(routeId).
-                orElseThrow(() -> new RuntimeException("존재하지 않는 허브 이동 경로입니다."));
+                orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
 
         return new HubRouteResponse(hubRoute);
     }
@@ -46,13 +49,12 @@ public class HubRouteService {
     public HubRouteResponse findRoute( UUID departureHubId,
                                        UUID arrivalHubId){
         if(departureHubId.equals(arrivalHubId)) {
-            throw new IllegalArgumentException(
-                    "출발 허브와 도착 허브는 같을 수 없습니다."
-            );
+            throw new BusinessException(HubRouteErrorCode.SAME_DEPARTURE_AND_ARRIVAL_HUB);
+
         }
 
         HubRoute route = hubRouteRepository.findAllActiveRoutes(departureHubId,arrivalHubId)
-                .orElseThrow(() -> new RuntimeException("등록된 이동 경로가 없습니다."));
+                .orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
 
 
         return new HubRouteResponse(route);
@@ -63,12 +65,12 @@ public class HubRouteService {
     public HubRoutePathResponse findPath(UUID departureHubId,
                                          UUID arrivalHubId) {
         if(departureHubId.equals(arrivalHubId)){
-            throw new RuntimeException("출발 허브와 도착 허브는 같을 수 없습니다.");
+            throw new BusinessException(HubRouteErrorCode.HUB_ROUTE_NOT_FOUND);
         }
 
         HubRoute hubRoute =
                 hubRouteRepository.findAllActiveRoutes(departureHubId,arrivalHubId)
-                        .orElseThrow(() -> new RuntimeException("등록된 이동경로가 없습니다."));
+                        .orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
 
         HubRouteResponse routeResponse =
                 new HubRouteResponse(hubRoute);
@@ -93,11 +95,11 @@ public class HubRouteService {
     public void createHubRoute(HubRouteCreateRequest request){
         Hub departureHubId = hubRepository.findByHubIdAndDeletedAtIsNull
                 (request.getDepartureHubId()).
-                orElseThrow(() -> new RuntimeException("출발 허브 Id가 존재 하지 않습니다."));
+                orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
 
 
         Hub arrivalHubId = hubRepository.findByHubIdAndDeletedAtIsNull(request.getArrivalHubId()).
-                orElseThrow(() -> new RuntimeException("도착 허브 Id가 존재 하지 않습니다."));
+                orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
 
         if(departureHubId.getHubId().equals(arrivalHubId.getHubId())){
             throw new IllegalArgumentException(
@@ -116,7 +118,7 @@ public class HubRouteService {
     @Transactional
     public void hubRouteUpdate(UUID routeId){
         HubRoute hubRoute = hubRouteRepository.findByHubRouteIdAndDeletedAtIsNull(routeId)
-                .orElseThrow(() -> new RuntimeException("허브라우터가 존재하지 않습니다."));
+                .orElseThrow(() -> new BusinessException(HubRouteErrorCode.HUB_ROUTE_NOT_FOUND));
 
         hubRoute.updateRoute(hubRoute.getDurationMinutes(),hubRoute.getDistanceKm());
 

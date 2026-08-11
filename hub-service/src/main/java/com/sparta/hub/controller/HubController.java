@@ -36,12 +36,10 @@ public class HubController {
             responseCode = "200",
             description = "허브 전체 조회 성공")})
     @GetMapping()
-    public ResponseEntity<ApiResponse<List<HubResponse>>> findAllHubs() {
-        return ResponseEntity.status(HttpStatus.OK)
-                .body(
-                        ApiResponse.success(
+    public ApiResponse<List<HubResponse>> findAllHubs() {
+        return ApiResponse.success(
                                 "허브 조회 성공",
-                                hubService.findAllHubs()));
+                                hubService.findAllHubs());
 
     }
 
@@ -61,12 +59,10 @@ public class HubController {
             )
     })
     @GetMapping("/{hubId}")
-    public ResponseEntity<ApiResponse<HubResponse>> findHub(@PathVariable UUID hubId) {
+    public ApiResponse<HubResponse> findHub(@PathVariable UUID hubId) {
 
 
-        return ResponseEntity.status(HttpStatus.OK)
-                .body(
-                        ApiResponse.success("허브 조회 성공", hubService.findHub(hubId)));
+        return  ApiResponse.success("허브 조회 성공", hubService.findHub(hubId));
     }
 
     // 허브 생성
@@ -85,7 +81,7 @@ public class HubController {
             )
     })
     @PostMapping
-    public ResponseEntity<ApiResponse<Void>> createHub(@Valid @RequestBody HubCreateRequest request) {
+    public ResponseEntity<ApiResponse<HubResponse>> createHub(@Valid @RequestBody HubCreateRequest request) {
         hubService.createHub(request);
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -109,13 +105,11 @@ public class HubController {
             )
     })
     @PatchMapping("/{hubId}")
-    public ResponseEntity<ApiResponse<Void>> updateHub(@PathVariable UUID hubId,
+    public ApiResponse<Void> updateHub(@PathVariable UUID hubId,
                                                        @Valid @RequestBody HubUpdateRequest request) {
         hubService.updateHub(hubId, request);
 
-        return ResponseEntity.status(HttpStatus.OK)
-                .body(
-                        ApiResponse.success("허브 수정 완료", null));
+        return ApiResponse.success("허브 수정 완료", null);
     }
 
     @Operation(
@@ -133,12 +127,10 @@ public class HubController {
             )
     })
     @DeleteMapping("/{hubId}")
-    public ResponseEntity<ApiResponse<Void>> deleteHub(@PathVariable UUID hubId) {
+    public ApiResponse<Void> deleteHub(@PathVariable UUID hubId) {
         hubService.deleteHub(hubId);
 
-        return ResponseEntity.status(HttpStatus.OK)
-                .body(
-                        ApiResponse.success("허브 삭제 완료", null));
+        return ApiResponse.success("허브 삭제 완료", null);
 
     }
 

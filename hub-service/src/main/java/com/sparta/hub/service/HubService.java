@@ -1,10 +1,13 @@
 package com.sparta.hub.service;
 
+import com.sparta.common.exception.BusinessException;
 import com.sparta.hub.dto.request.HubCreateRequest;
 import com.sparta.hub.dto.request.HubUpdateRequest;
 import com.sparta.hub.dto.response.HubResponse;
 import com.sparta.hub.entity.Hub;
+import com.sparta.hub.exception.HubErrorCode;
 import com.sparta.hub.repository.HubRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +22,11 @@ public class HubService {
 
 
     // 허브 단건 조회
+
+    @Cacheable(
+            cacheNames = "hubs",
+            key = "#hubId"
+    )
     @Transactional(readOnly = true)
     public HubResponse findHub(UUID hubId){
         Hub hub = hubRepository.findByHubIdAndDeletedAtIsNull(hubId).orElseThrow(()
@@ -43,20 +51,22 @@ public class HubService {
 
     // 허브 생성
     @Transactional
-    public void createHub(HubCreateRequest hubRequest){
+    public HubResponse createHub(HubCreateRequest hubRequest){
         Hub hub = new Hub(hubRequest.getName()
                 ,hubRequest.getAddress()
                 ,hubRequest.getLatitude(),
                 hubRequest.getLongitude());
 
         Hub savedHub = hubRepository.save(hub);
+
+        return new HubResponse(savedHub);
     }
 
     // 허브 수정
     @Transactional
     public void updateHub(UUID hubId, HubUpdateRequest request) {
         Hub hub = hubRepository.findByHubIdAndDeletedAtIsNull(hubId)
-                .orElseThrow(() -> new RuntimeException("없는 허브 번호 입니다"));
+                .orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
 
         hub.update(request);
     }
@@ -65,7 +75,7 @@ public class HubService {
     @Transactional
     public void deleteHub(UUID hubId){
         Hub hub = hubRepository.findByHubIdAndDeletedAtIsNull(hubId)
-                .orElseThrow(() -> new RuntimeException("없는 허브 번호 입니다"));
+                .orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
 
         hub.softDelete(hubId);
 

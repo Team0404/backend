@@ -20,12 +20,20 @@ public class RedisCacheConfig {
     public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory){
         RedisCacheConfiguration configuration =
                 RedisCacheConfiguration.defaultCacheConfig()
+                        // 10분 후 자동 삭제
                         .entryTtl(Duration.ofMinutes(10))
+
+                        // null 조회 저장 x
                         .disableCachingNullValues()
+
+                        // Redis Key 문자열로 저장
                         .serializeKeysWith(RedisSerializationContext.SerializationPair
                                 .fromSerializer(new StringRedisSerializer()
                                 )
-                        ).serializeValuesWith(RedisSerializationContext.SerializationPair
+                        )
+
+                        // Redis Value JSON으로 저장
+                        .serializeValuesWith(RedisSerializationContext.SerializationPair
                                 .fromSerializer(new GenericJackson2JsonRedisSerializer()));
 
         return RedisCacheManager.builder(connectionFactory)
