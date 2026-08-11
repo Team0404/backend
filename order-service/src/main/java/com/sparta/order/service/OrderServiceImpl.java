@@ -9,6 +9,7 @@ import com.sparta.common.response.PageResponse;
 import com.sparta.order.client.CompanyClient;
 import com.sparta.order.client.DeliveryClient;
 import com.sparta.order.client.ProductClient;
+import com.sparta.order.client.UserClient;
 import com.sparta.order.client.dto.*;
 import com.sparta.order.dto.request.CreateOrderRequest;
 import com.sparta.order.dto.request.OrderSearchRequest;
@@ -39,6 +40,7 @@ public class OrderServiceImpl implements OrderService {
     private final ProductClient productClient;
     private final CompanyClient companyClient;
     private final DeliveryClient deliveryClient;
+    private final UserClient userClient;
 
     @Override
     @Transactional(noRollbackFor = OrderCreationCompensationException.class)
@@ -81,6 +83,11 @@ public class OrderServiceImpl implements OrderService {
         //log.info("company.companyId() = {}", company.companyId());
         //log.info("company.hubId() = {}", company.hubId());
 
+        UserResponse user = requireData(
+                userClient.getUser(context.requestUserId()),
+                "사용자 정보를 조회할 수 없습니다."
+        );
+
         List<OrderItem> createdOrderItems = new ArrayList<>();
 
         try {
@@ -106,7 +113,7 @@ public class OrderServiceImpl implements OrderService {
                             company.hubId(),
                             company.address(),
                             company.name(),
-                            null,
+                            user.slackId(),
                             productInfo,
                             request.requestNote()
                     )),
