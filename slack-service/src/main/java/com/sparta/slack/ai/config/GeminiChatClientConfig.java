@@ -16,9 +16,7 @@ public class GeminiChatClientConfig {
     /**
      * Gemini 호출 타임아웃(ms).
      *
-     * <p>이 값이 없으면 응답이 오지 않을 때 호출 스레드가 무한정 붙잡힌다. A1은 배송 서비스의
-     * 비동기 스레드풀(크기 5)에서 호출되므로, 몇 건만 매달려도 풀이 고갈되고 이후 알림이
-     * 전부 밀린다.
+     * <p>이 값이 없으면 응답이 오지 않을 때 호출 스레드가 무한정 붙잡힌다.
      */
     private static final int TIMEOUT_MS = 30_000;
 

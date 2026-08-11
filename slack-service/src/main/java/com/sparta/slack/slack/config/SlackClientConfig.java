@@ -11,9 +11,6 @@ import java.time.Duration;
 
 /**
  * 슬랙 Webhook 호출용 RestClient 설정.
- *
- * <p>타임아웃을 반드시 지정한다. 무제한 대기 시 발송 스레드가 묶여
- * 이후 요청까지 연쇄적으로 지연된다.
  */
 @Configuration
 @EnableRetry

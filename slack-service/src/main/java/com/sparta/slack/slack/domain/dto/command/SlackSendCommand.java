@@ -9,9 +9,6 @@ import java.util.UUID;
 
 /**
  * 서비스 내부에서 슬랙 발송을 요청할 때 쓰는 커맨드.
- *
- * <p>웹 요청 DTO(M1)와 분리해 둔 이유는, AI(A1/A4)처럼 HTTP 요청 없이
- * 내부에서 발송을 트리거하는 경로가 있기 때문이다.
  */
 @Getter
 @Builder
