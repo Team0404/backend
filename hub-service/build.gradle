@@ -4,7 +4,6 @@ dependencies {
 
     implementation 'org.flywaydb:flyway-core'
     runtimeOnly 'org.flywaydb:flyway-database-postgresql'
-    runtimeOnly 'org.postgresql:postgresql'
 
     // Web + JPA + Validation
     implementation 'org.springframework.boot:spring-boot-starter-web'
