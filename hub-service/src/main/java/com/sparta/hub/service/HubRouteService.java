@@ -202,7 +202,7 @@ public class HubRouteService {
     })
     @Transactional
     public HubRouteResponse createHubRoute(HubRouteCreateRequest request){
-        Hub departureHubId =
+        Hub departureHub =
                 hubRepository.findByHubIdAndStatusAndDeletedAtIsNull(
                                 request.getDepartureHubId(),
                                 HubStatus.ACTIVE
@@ -212,7 +212,7 @@ public class HubRouteService {
                                         HubRouteErrorCode.DEPARTURE_HUB_INACTIVE
                                 ));
 
-        Hub arrivalHubId =
+        Hub arrivalHub =
                 hubRepository.findByHubIdAndStatusAndDeletedAtIsNull(
                                 request.getArrivalHubId(),
                                 HubStatus.ACTIVE
@@ -222,20 +222,33 @@ public class HubRouteService {
                                         HubRouteErrorCode.ARRIVAL_HUB_INACTIVE
                                 ));
 
-
-
-        if(departureHubId.getHubId().equals(arrivalHubId.getHubId())){
-            throw new IllegalArgumentException(
-                    "출발 허브와 도착 허브는 같을 수 없습니다."
+        // 출발·도착 허브 동일 여부 검사
+        if (departureHub.getHubId().equals(arrivalHub.getHubId())) {
+            throw new BusinessException(
+                    HubRouteErrorCode.SAME_DEPARTURE_AND_ARRIVAL_HUB
             );
         }
 
-        HubRoute route = new HubRoute(departureHubId,arrivalHubId,
-                request.getDurationMinutes(),request.getDistanceKm());
+        // 동일한 활성 이동 경로 중복 검사
+        if (hubRouteRepository.findAllActiveRoutes(
+                departureHub.getHubId(),
+                arrivalHub.getHubId()
+        ).isPresent()) {
+            throw new BusinessException(
+                    HubRouteErrorCode.HUB_ROUTE_ALREADY_EXISTS
+            );
+        }
 
-        hubRouteRepository.save(route);
+        HubRoute route = new HubRoute(
+                departureHub,
+                arrivalHub,
+                request.getDurationMinutes(),
+                request.getDistanceKm()
+        );
 
-        return new HubRouteResponse(route);
+        HubRoute savedRoute = hubRouteRepository.save(route);
+
+        return new HubRouteResponse(savedRoute);
 
     }
 

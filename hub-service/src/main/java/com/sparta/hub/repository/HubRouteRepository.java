@@ -11,7 +11,18 @@ import java.util.UUID;
 
 public interface HubRouteRepository extends JpaRepository<HubRoute, UUID> {
 
+    // N + 1
+    @Query("""
+    SELECT hr
+    FROM HubRoute hr
+    JOIN FETCH hr.departureHub dh
+    JOIN FETCH hr.arrivalHub ah
+    WHERE hr.deletedAt IS NULL
+      AND dh.deletedAt IS NULL
+      AND ah.deletedAt IS NULL
+    """)
     List<HubRoute> findAllByDeletedAtIsNull();
+
     Optional<HubRoute> findByHubRouteIdAndDeletedAtIsNull(UUID id);
 
 
