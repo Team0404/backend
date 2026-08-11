@@ -52,6 +52,14 @@ public class DeliveryRoute extends BaseEntity {
     @Column(name = "hub_delivery_manager_id")
     public UUID hubDeliveryManagerId;
 
+    public void cancel() {
+        if (!status.canTransit(DeliveryRouteStatusEnum.CANCELLED)) {
+            return;
+        }
+        this.status = DeliveryRouteStatusEnum.CANCELLED;
+        this.hubDeliveryManagerId = null;
+    }
+
     public void update(
             String status,
             BigDecimal actualDistanceKm,
@@ -59,11 +67,15 @@ public class DeliveryRoute extends BaseEntity {
             UUID hubDeliveryManagerId
     ) {
         if (status != null && !status.isBlank()) {
-            // TODO transition 설정
+            DeliveryRouteStatusEnum next;
             try {
-                this.status = DeliveryRouteStatusEnum.valueOf(status);
+                next = DeliveryRouteStatusEnum.valueOf(status);
             } catch (IllegalArgumentException e) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT, "유효하지않은 Status 입니다.");
+            }
+            if (next != this.status) {
+                this.status.validateTransit(next);
+                this.status = next;
             }
         }
         if (actualDistanceKm != null) {

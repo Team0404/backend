@@ -31,6 +31,9 @@ public class JwtTokenProvider {
         if (!TokenType.ACCESS.name().equals(claims.get("tokenType", String.class))) {
             throw new JwtException("Access Token이 아닙니다.");
         }
+        if (claims.getId() == null || claims.getId().isBlank()) {
+            throw new JwtException("Access Token 식별자가 없습니다.");
+        }
         return claims;
     }
 }

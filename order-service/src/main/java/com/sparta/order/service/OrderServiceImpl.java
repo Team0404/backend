@@ -31,9 +31,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -57,12 +55,14 @@ public class OrderServiceImpl implements OrderService {
         validateSupplierCompanyAccess(context, company.id());
 
         UUID originHubId = null;
+        Map<UUID, ProductResponse> productResponses = new LinkedHashMap<>();
 
         for (CreateOrderRequest.OrderItemRequest itemRequest : request.orderItems()) {
             ProductResponse product = requireData(
                     productClient.getProduct(itemRequest.productId()),
                     "상품 정보를 조회할 수 없습니다."
             );
+            productResponses.put(itemRequest.productId(), product);
 
             if (originHubId == null) {
                 originHubId = product.hubId();
@@ -82,10 +82,13 @@ public class OrderServiceImpl implements OrderService {
 
         try {
             for (CreateOrderRequest.OrderItemRequest itemRequest : request.orderItems()) {
+                ProductResponse product = productResponses.get(itemRequest.productId());
                 productClient.decreaseStock(itemRequest.productId(), itemRequest.quantity());
 
                 OrderItem orderItem = OrderItem.builder()
                         .productId(itemRequest.productId())
+                        .productName(product.name())
+                        .unitPrice(product.price())
                         .quantity(itemRequest.quantity())
                         .build();
 

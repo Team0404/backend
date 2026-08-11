@@ -30,10 +30,6 @@ import java.util.UUID;
 @Tag(name = "Order", description = "주문 관리 API")
 public class OrderController {
 
-    private static final String HUB_ID_HEADER = "X-Hub-Id";
-    private static final String COMPANY_ID_HEADER = "X-Company-Id";
-    private static final String DELIVERY_MANAGER_ID_HEADER = "X-Delivery-Manager-Id";
-
     private final OrderService orderService;
 
     @Operation(
@@ -45,9 +41,9 @@ public class OrderController {
             @Valid @RequestBody CreateOrderRequest request,
             @RequestHeader(AuthHeaders.USER_ID) UUID requestUserId,
             @RequestHeader(AuthHeaders.USER_ROLE) UserRole userRole,
-            @RequestHeader(value = HUB_ID_HEADER, required = false) UUID requestHubId,
-            @RequestHeader(value = COMPANY_ID_HEADER, required = false) UUID requestCompanyId,
-            @RequestHeader(value = DELIVERY_MANAGER_ID_HEADER, required = false) UUID requestDeliveryManagerId
+            @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
+            @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
+            @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
     ) {
         OrderResponse response = orderService.createOrder(
                 request,
@@ -68,9 +64,9 @@ public class OrderController {
             Pageable pageable,
             @RequestHeader(AuthHeaders.USER_ID) UUID requestUserId,
             @RequestHeader(AuthHeaders.USER_ROLE) UserRole userRole,
-            @RequestHeader(value = HUB_ID_HEADER, required = false) UUID requestHubId,
-            @RequestHeader(value = COMPANY_ID_HEADER, required = false) UUID requestCompanyId,
-            @RequestHeader(value = DELIVERY_MANAGER_ID_HEADER, required = false) UUID requestDeliveryManagerId
+            @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
+            @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
+            @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
     ) {
         log.info("requestUserId={}", requestUserId);
         log.info("userRole={}", userRole);
@@ -93,9 +89,9 @@ public class OrderController {
             @PathVariable UUID orderId,
             @RequestHeader(AuthHeaders.USER_ID) UUID requestUserId,
             @RequestHeader(AuthHeaders.USER_ROLE) UserRole userRole,
-            @RequestHeader(value = HUB_ID_HEADER, required = false) UUID requestHubId,
-            @RequestHeader(value = COMPANY_ID_HEADER, required = false) UUID requestCompanyId,
-            @RequestHeader(value = DELIVERY_MANAGER_ID_HEADER, required = false) UUID requestDeliveryManagerId
+            @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
+            @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
+            @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
     ) {
         OrderResponse response = orderService.getOrder(
                 orderId,
@@ -115,9 +111,9 @@ public class OrderController {
             @Valid @RequestBody UpdateOrderRequest request,
             @RequestHeader(AuthHeaders.USER_ID) UUID requestUserId,
             @RequestHeader(AuthHeaders.USER_ROLE) UserRole userRole,
-            @RequestHeader(value = HUB_ID_HEADER, required = false) UUID requestHubId,
-            @RequestHeader(value = COMPANY_ID_HEADER, required = false) UUID requestCompanyId,
-            @RequestHeader(value = DELIVERY_MANAGER_ID_HEADER, required = false) UUID requestDeliveryManagerId
+            @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
+            @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
+            @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
     ) {
         OrderResponse response = orderService.updateOrder(
                 orderId,
@@ -138,9 +134,9 @@ public class OrderController {
             @Valid @RequestBody UpdateOrderStatusRequest request,
             @RequestHeader(AuthHeaders.USER_ID) UUID requestUserId,
             @RequestHeader(AuthHeaders.USER_ROLE) UserRole userRole,
-            @RequestHeader(value = HUB_ID_HEADER, required = false) UUID requestHubId,
-            @RequestHeader(value = COMPANY_ID_HEADER, required = false) UUID requestCompanyId,
-            @RequestHeader(value = DELIVERY_MANAGER_ID_HEADER, required = false) UUID requestDeliveryManagerId
+            @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
+            @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
+            @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
     ) {
         OrderResponse response = orderService.updateOrderStatus(
                 orderId,
@@ -160,9 +156,9 @@ public class OrderController {
             @PathVariable UUID orderId,
             @RequestHeader(AuthHeaders.USER_ID) UUID requestUserId,
             @RequestHeader(AuthHeaders.USER_ROLE) UserRole userRole,
-            @RequestHeader(value = HUB_ID_HEADER, required = false) UUID requestHubId,
-            @RequestHeader(value = COMPANY_ID_HEADER, required = false) UUID requestCompanyId,
-            @RequestHeader(value = DELIVERY_MANAGER_ID_HEADER, required = false) UUID requestDeliveryManagerId
+            @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
+            @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
+            @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
     ) {
         OrderResponse response = orderService.cancelOrder(
                 orderId,
@@ -181,9 +177,9 @@ public class OrderController {
             @PathVariable UUID orderId,
             @RequestHeader(AuthHeaders.USER_ID) UUID requestUserId,
             @RequestHeader(AuthHeaders.USER_ROLE) UserRole userRole,
-            @RequestHeader(value = HUB_ID_HEADER, required = false) UUID requestHubId,
-            @RequestHeader(value = COMPANY_ID_HEADER, required = false) UUID requestCompanyId,
-            @RequestHeader(value = DELIVERY_MANAGER_ID_HEADER, required = false) UUID requestDeliveryManagerId
+            @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
+            @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
+            @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
     ) {
         orderService.deleteOrder(
                 orderId,

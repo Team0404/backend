@@ -1,5 +1,6 @@
 package com.sparta.user.controller;
 
+import com.sparta.common.constant.AuthHeaders;
 import com.sparta.common.dto.UserInfoResponse;
 import com.sparta.common.response.ApiResponse;
 import com.sparta.common.response.PageResponse;
@@ -36,6 +37,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -102,13 +104,18 @@ public class AuthController {
         return ApiResponse.success("토큰을 재발급했습니다.", authService.refresh(request));
     }
 
-    @Operation(summary = "로그아웃", description = "Redis에 저장된 Refresh Token을 폐기합니다.")
-    @SecurityRequirements
+    @Operation(
+            summary = "로그아웃",
+            description = "Refresh Token을 폐기하고 현재 Access Token을 만료 시각까지 차단합니다."
+    )
     @PostMapping("/logout")
     public ApiResponse<Void> logout(
-            @Valid @RequestBody RefreshTokenRequest request
+            @Valid @RequestBody RefreshTokenRequest request,
+            @Parameter(hidden = true) @CurrentUser UserPrincipal principal,
+            @Parameter(hidden = true) @RequestHeader(AuthHeaders.TOKEN_ID) String tokenId,
+            @Parameter(hidden = true) @RequestHeader(AuthHeaders.TOKEN_EXPIRES_AT) long tokenExpiresAt
     ) {
-        authService.logout(request);
+        authService.logout(request, principal.getUserId(), tokenId, tokenExpiresAt);
         return ApiResponse.success("로그아웃했습니다.", null);
     }
 

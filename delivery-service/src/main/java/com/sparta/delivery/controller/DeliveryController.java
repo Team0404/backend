@@ -5,6 +5,7 @@ import com.sparta.common.response.ApiResponse;
 import com.sparta.common.response.PageResponse;
 import com.sparta.common.security.CurrentUser;
 import com.sparta.common.security.UserPrincipal;
+import com.sparta.delivery.domain.dto.request.DeliveryCancelRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryCreateRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryRouteUpdateRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryUpdateRequestDto;
@@ -92,6 +93,21 @@ public class DeliveryController {
             @RequestBody DeliveryUpdateRequestDto request
     ) {
         return deliveryService.updateDelivery(deliveryId, request, authUser.getUserId(), authUser.getRole());
+    }
+
+    @Operation(
+            summary = "배송 취소",
+            description = "주문 취소 시 호출되는 보상 트랜잭션 API입니다. 아직 출발하지 않은 경로와 마지막 업체 배송만 취소하며, "
+                    + "이미 완료되었거나 이동 중인 경로는 그대로 보존합니다. 업체 배송이 시작된 이후에는 취소할 수 없습니다. "
+                    + "동일 요청이 재시도되어도 안전합니다(멱등). 허용 권한: MASTER 또는 내부 시스템(주문 서비스)"
+    )
+    @PatchMapping("/deliveries/cancel")
+    public ApiResponse<DeliveryCancelResponseDto> cancelDelivery(
+            @CurrentUser UserPrincipal authUser,
+            @RequestHeader(value = AuthHeaders.INTERNAL_CALL, required = false) String internalCaller,
+            @RequestBody @Valid DeliveryCancelRequestDto request
+    ) {
+        return deliveryService.cancelDelivery(request, authUser.getUserId(), authUser.getRole(), internalCaller);
     }
 
     @Operation(
