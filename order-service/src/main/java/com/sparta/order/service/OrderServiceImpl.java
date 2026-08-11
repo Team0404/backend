@@ -9,10 +9,7 @@ import com.sparta.common.response.PageResponse;
 import com.sparta.order.client.CompanyClient;
 import com.sparta.order.client.DeliveryClient;
 import com.sparta.order.client.ProductClient;
-import com.sparta.order.client.dto.CompanyResponse;
-import com.sparta.order.client.dto.DeliveryCreateRequest;
-import com.sparta.order.client.dto.DeliveryCreateResponse;
-import com.sparta.order.client.dto.ProductResponse;
+import com.sparta.order.client.dto.*;
 import com.sparta.order.dto.request.CreateOrderRequest;
 import com.sparta.order.dto.request.OrderSearchRequest;
 import com.sparta.order.dto.request.UpdateOrderRequest;
@@ -52,7 +49,7 @@ public class OrderServiceImpl implements OrderService {
                 companyClient.getCompany(request.companyId()),
                 "업체 정보를 조회할 수 없습니다."
         );
-        validateSupplierCompanyAccess(context, company.id());
+        validateSupplierCompanyAccess(context, company.companyId());
 
         UUID originHubId = null;
         Map<UUID, ProductResponse> productResponses = new LinkedHashMap<>();
@@ -71,12 +68,15 @@ public class OrderServiceImpl implements OrderService {
 
         Order savedOrder = orderRepository.save(Order.builder()
                 .orderNumber(generateOrderNumber())
-                .companyId(company.id())
+                .companyId(company.companyId())
                 .hubId(company.hubId())
                 .requestNote(request.requestNote())
                 .deliveryDeadline(request.deliveryDeadline())
                 .status(OrderStatus.PENDING)
                 .build());
+
+        //log.info("company.companyId() = {}", company.companyId());
+        //log.info("company.hubId() = {}", company.hubId());
 
         List<OrderItem> createdOrderItems = new ArrayList<>();
 
@@ -113,6 +113,8 @@ public class OrderServiceImpl implements OrderService {
 
             return OrderResponse.from(savedOrder);
         } catch (RuntimeException exception) {
+            //log.error("주문 생성 실패", exception);
+
             String compensationErrorMessage = compensateOrderCreation(createdOrderItems, savedOrder);
             if (compensationErrorMessage != null) {
                 throw new OrderCreationCompensationException(
@@ -201,7 +203,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         if (order.getDeliveryId() != null) {
-            deliveryClient.cancelDelivery(order.getDeliveryId());
+            deliveryClient.cancelDelivery(new DeliveryCancelRequest(order.getId(), "주문 취소"));
         }
 
         order.updateStatus(OrderStatus.CANCELLED);
