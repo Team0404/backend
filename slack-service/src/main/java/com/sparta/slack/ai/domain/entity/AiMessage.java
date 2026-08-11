@@ -34,13 +34,6 @@ public class AiMessage extends BaseEntity {
     @Column(name = "delivery_id", nullable = false)
     private UUID deliveryId;
 
-    /**
-     * 알림을 받을 발송 허브 담당자의 슬랙 ID.
-     *
-     * <p>배송의 {@code recipient_slack_id}(수령 고객)와는 다른 대상이다. A4 재생성 성공 시
-     * 슬랙을 재발송하려면 수신자를 알아야 하는데, A1이 AI 호출 단계에서 실패하면 슬랙 이력이
-     * 아예 생기지 않아 이력에서 역추적할 수 없다. 그래서 AI 로그 자체에 보관한다.
-     */
     @Column(name = "manager_slack_id", nullable = false, length = 100)
     private String managerSlackId;
 

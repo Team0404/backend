@@ -19,10 +19,7 @@ public interface AiMessageRepository extends JpaRepository<AiMessage, UUID> {
     /** A1 멱등 처리 / A7 취소 대상 조회용. */
     Optional<AiMessage> findByOrderIdAndDeletedAtIsNull(UUID orderId);
 
-    /**
-     * A2. 조건부 검색. 각 조건은 파라미터가 null 이면 통과시키는 방식으로 동적 필터를 흉내낸다.
-     * ({@code :param IS NULL OR 컬럼 = :param})
-     */
+    /** A2. 조건부 검색. */
     @Query("""
             SELECT am FROM AiMessage am
             WHERE am.deletedAt IS NULL

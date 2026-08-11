@@ -41,10 +41,6 @@ import java.util.UUID;
 
 /**
  * AI 발송시한(A1~A7) 비즈니스 로직.
- *
- * <p>클래스 레벨에 {@code @Transactional} 을 걸지 않는다. A1/A4는 Gemini 호출과 슬랙 발송이라는
- * 느린 외부 호출을 포함하는데, 이를 트랜잭션으로 감싸면 그 시간 내내 DB 커넥션을 붙잡게 된다.
- * 영속화는 {@link AiMessageWriter} 가 {@code REQUIRES_NEW} 로 독립 커밋한다.
  */
 @Slf4j
 @Service
