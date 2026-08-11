@@ -48,12 +48,16 @@ services:
   zipkin:
     image: openzipkin/zipkin:latest
     container_name: sparta-zipkin
+    ports:
+      - "9411:9411"
     restart: unless-stopped
 
   # ---------------- 앱 (GHCR 이미지) ----------------
   eureka:
     image: ghcr.io/team0404/eureka-service:latest
     container_name: sparta-eureka
+    ports:
+      - "8761:8761"
     restart: unless-stopped
 
   gateway:
