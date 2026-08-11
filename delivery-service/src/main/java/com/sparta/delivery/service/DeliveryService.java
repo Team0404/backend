@@ -8,9 +8,12 @@ import com.sparta.common.response.ApiResponse;
 import com.sparta.common.response.PageResponse;
 import com.sparta.common.security.UserPrincipal;
 import com.sparta.common.util.PageableUtil;
+import com.sparta.delivery.client.AiClient;
 import com.sparta.delivery.client.HubClient;
 import com.sparta.delivery.client.OrderClient;
 import com.sparta.delivery.client.UserClient;
+import com.sparta.delivery.client.dto.AiCancelRequest;
+import com.sparta.delivery.domain.event.DeliveryCreatedEvent;
 import com.sparta.delivery.domain.dto.request.DeliveryCancelRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryCreateRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryRouteUpdateRequestDto;
@@ -24,6 +27,8 @@ import com.sparta.delivery.repository.DeliveryRepository;
 import com.sparta.delivery.repository.DeliveryRouteRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,6 +43,7 @@ import java.util.UUID;
 /**
  * 배송(D1~D7) 비즈니스 로직.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DeliveryService {
@@ -49,6 +55,8 @@ public class DeliveryService {
     private final UserClient userClient;
     private final OrderClient orderClient;
     private final HubClient hubClient;
+    private final AiClient aiClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     /** 내부 호출(X-Internal-Call)로 배송 생성/취소를 수행할 수 있는 서비스 목록. */
     private static final Set<String> ALLOWED_INTERNAL_SERVICES = Set.of("order-service");
@@ -113,6 +121,8 @@ public class DeliveryService {
 //                .toList();
         deliveryRouteRepository.saveAll(drList);
 
+        publishDeliveryCreatedEvent(request, savedDelivery, drList);
+
         return ApiResponse.success(
                 DeliveryCreateResponseDto.builder()
                         .deliveryId(savedDelivery.getDeliveryId())
@@ -120,6 +130,40 @@ public class DeliveryService {
                         .routeCount(drList.size())
                         .build()
         );
+    }
+
+    /**
+     * AI 발송시한 알림(A1)을 트리거하는 이벤트를 발행한다.
+     *
+     * <p>여기서는 발행만 하고, 실제 호출은 커밋 이후 별도 스레드에서 이뤄진다.
+     * ({@link DispatchDeadlineEventListener}) AI 알림은 배송 성립의 전제가 아니므로
+     * 이 트랜잭션에 묶지 않는다.
+     */
+    private void publishDeliveryCreatedEvent(
+            DeliveryCreateRequestDto request,
+            Delivery savedDelivery,
+            List<DeliveryRoute> routes
+    ) {
+        // 알림 대상은 첫 구간을 맡은 허브 배송담당자다. 경로가 아직 생성되지 않는 동안에는
+        // 출발 허브 기준으로 직접 배정해 알림 대상만이라도 확보한다.
+        UUID hubDeliveryManagerId = routes.isEmpty()
+                ? assignNextManager(DeliveryManagerType.HUB, request.getOriginHubId())
+                : routes.get(0).getHubDeliveryManagerId();
+
+        List<UUID> waypointHubIds = routes.stream()
+                .map(DeliveryRoute::getDestHubId)
+                .toList();
+
+        eventPublisher.publishEvent(DeliveryCreatedEvent.builder()
+                .orderId(savedDelivery.getOrderId())
+                .deliveryId(savedDelivery.getDeliveryId())
+                .originHubId(savedDelivery.getOriginHubId())
+                .destAddress(savedDelivery.getDeliveryAddress())
+                .productInfo(request.getProductInfo())
+                .requestNote(request.getRequestNote())
+                .hubDeliveryManagerId(hubDeliveryManagerId)
+                .waypointHubIds(waypointHubIds)
+                .build());
     }
 
     @Transactional(readOnly = true)
@@ -305,7 +349,26 @@ public class DeliveryService {
             route.cancel();
         }
 
+        cancelDispatchDeadline(delivery.getOrderId(), request.getReason());
+
         return ApiResponse.success(toCancelResponse(delivery, routeList));
+    }
+
+    /**
+     * AI 발송시한 알림에 대한 보상 처리.
+     *
+     * <p>아직 발송 전이면 CANCELLED 로 막고, 이미 알림이 나갔으면 slack-service 가 취소 안내를
+     * 재발송한다. 슬랙은 Incoming Webhook 이라 보낸 메시지를 지울 수 없어 "롤백"이 성립하지 않는다.
+     *
+     * <p>실패해도 예외를 전파하지 않는다. 알림 보상이 안 됐다고 배송 취소 자체를 되돌리면
+     * 주문 취소 흐름 전체가 막히기 때문이다. 실패 건은 로그로 남긴다.
+     */
+    private void cancelDispatchDeadline(UUID orderId, String reason) {
+        try {
+            aiClient.cancelDispatchDeadline(new AiCancelRequest(orderId, reason));
+        } catch (Exception e) {
+            log.error("AI 발송시한 취소 실패. orderId={}", orderId, e);
+        }
     }
 
     private DeliveryCancelResponseDto toCancelResponse(Delivery delivery, List<DeliveryRoute> routeList) {

@@ -16,6 +16,21 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  ai:
+    # AI 발송시한 산출 (A1/A4, Gemini Developer API)
+    # api-key 는 빈 기본값이 중요하다 — 키 없는 팀원도 slack-service를 기동할 수 있어야 하며,
+    # 실제 호출 시점에만 AI_API_KEY_NOT_CONFIGURED(M207)로 실패 처리한다.
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:}
+        chat:
+          options:
+            model: ${GEMINI_MODEL:gemini-2.5-flash}
+            temperature: 0.2
+    # 프레임워크 자체 재시도를 끈다. 즉시 재시도는 GeminiClient의 @Retryable이 전담하며,
+    # 이중으로 겹치면 한 번의 A1 호출로 최대 시도 횟수가 배로 불어난다.
+    retry:
+      max-attempts: 1
 
 # 슬랙 메시지 발송 (Incoming Webhook 또는 Bot Token)
 slack:

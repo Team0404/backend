@@ -6,6 +6,7 @@ import com.sparta.common.exception.BusinessException;
 import com.sparta.common.exception.ErrorCode;
 import com.sparta.common.response.ApiResponse;
 import com.sparta.common.response.PageResponse;
+import com.sparta.delivery.client.AiClient;
 import com.sparta.delivery.client.HubClient;
 import com.sparta.delivery.client.OrderClient;
 import com.sparta.delivery.client.UserClient;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Page;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -61,6 +63,8 @@ class DeliveryServiceTest {
     private UserClient userClient;
     private OrderClient orderClient;
     private HubClient hubClient;
+    private AiClient aiClient;
+    private ApplicationEventPublisher eventPublisher;
     private DeliveryService deliveryService;
 
     @BeforeEach
@@ -72,9 +76,12 @@ class DeliveryServiceTest {
         userClient = mock(UserClient.class);
         orderClient = mock(OrderClient.class);
         hubClient = mock(HubClient.class);
+        aiClient = mock(AiClient.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
         deliveryService = new DeliveryService(
                 deliveryRepository, deliveryRouteRepository, deliveryManagerRepository,
-                deliveryManagerCursorRepository, userClient, orderClient, hubClient
+                deliveryManagerCursorRepository, userClient, orderClient, hubClient,
+                aiClient, eventPublisher
         );
 
         when(deliveryManagerCursorRepository.save(any(DeliveryManagerCursor.class)))

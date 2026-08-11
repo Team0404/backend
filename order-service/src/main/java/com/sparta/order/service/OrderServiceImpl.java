@@ -56,6 +56,8 @@ public class OrderServiceImpl implements OrderService {
 
         UUID originHubId = null;
         Map<UUID, ProductResponse> productResponses = new LinkedHashMap<>();
+        // 배송 서비스가 AI 발송시한 프롬프트에 넣을 상품 요약 (예: "마른 오징어 50개, 김 10개")
+        List<String> productSummaries = new ArrayList<>();
 
         for (CreateOrderRequest.OrderItemRequest itemRequest : request.orderItems()) {
             ProductResponse product = requireData(
@@ -67,7 +69,10 @@ public class OrderServiceImpl implements OrderService {
             if (originHubId == null) {
                 originHubId = product.hubId();
             }
+            productSummaries.add(product.name() + " " + itemRequest.quantity() + "개");
         }
+
+        String productInfo = String.join(", ", productSummaries);
 
         Order savedOrder = orderRepository.save(Order.builder()
                 .orderNumber(generateOrderNumber())
@@ -103,7 +108,9 @@ public class OrderServiceImpl implements OrderService {
                             company.hubId(),
                             company.address(),
                             company.name(),
-                            null
+                            null,
+                            productInfo,
+                            request.requestNote()
                     )),
                     "배송 생성에 실패했습니다."
             );
