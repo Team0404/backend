@@ -2,6 +2,10 @@ dependencies {
     // 공통 모듈
     implementation project(':common')
 
+    // flyway ( 스키마 생성 )
+    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'org.flywaydb:flyway-database-postgresql'
+
     // Web + JPA + Validation
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
