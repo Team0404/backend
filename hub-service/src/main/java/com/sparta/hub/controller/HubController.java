@@ -6,7 +6,6 @@ import com.sparta.common.security.UserPrincipal;
 import com.sparta.hub.dto.request.HubCreateRequest;
 import com.sparta.hub.dto.request.HubUpdateRequest;
 import com.sparta.hub.dto.response.HubResponse;
-import com.sparta.hub.repository.HubRepository;
 import com.sparta.hub.service.HubService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -16,7 +15,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -135,12 +133,26 @@ public class HubController {
     })
     @DeleteMapping("/{hubId}")
     @PreAuthorize("hasRole('MASTER')")
-    public ApiResponse<Void> deleteHub(@PathVariable UUID hubId,
-                                       @CurrentUser UserPrincipal userPrincipal) {
+    public ApiResponse<Void> requestDeactivation(@PathVariable UUID hubId,
+                                                 @CurrentUser UserPrincipal userPrincipal) {
         hubService.requestDeactivation(hubId);
 
-        return ApiResponse.success("허브 삭제 완료", null);
+        return ApiResponse.success("허브가 비활성화 대기 상태로 변경되었습니다.", null);
 
+    }
+
+    @PatchMapping("/{hubId}/deactivation/complete")
+    @PreAuthorize("hasRole('MASTER')")
+    public ApiResponse<Void> completeDeactivation(
+            @PathVariable UUID hubId,
+            @CurrentUser UserPrincipal principal
+    ) {
+        hubService.completeDeactivation(
+                hubId,
+                principal.getUserId()
+        );
+
+        return ApiResponse.success("허브 최종 삭제 완료", null);
     }
 
 

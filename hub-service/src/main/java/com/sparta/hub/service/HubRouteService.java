@@ -38,8 +38,11 @@ public class HubRouteService {
     @Transactional(readOnly = true)
     public HubRouteResponse findHubRoute(UUID routeId){
         HubRoute hubRoute = hubRouteRepository.
-                findById(routeId).
-                orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
+                findByHubRouteIdAndDeletedAtIsNull(routeId)
+                .orElseThrow(() ->
+                        new BusinessException(
+                                HubRouteErrorCode.HUB_ROUTE_NOT_FOUND
+                        ));
 
         return new HubRouteResponse(hubRoute);
     }
