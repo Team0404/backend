@@ -92,6 +92,113 @@ services:
       - eureka
     restart: unless-stopped
 
+  hub-service:
+    image: ghcr.io/team0404/hub-service:latest
+    container_name: sparta-hub
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: hub_service
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SCHEMA: public
+      DDL_AUTO: validate
+      SHOW_SQL: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      EUREKA_URL: http://eureka:8761/eureka/
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+    depends_on:
+      - postgres
+      - redis
+      - eureka
+    restart: unless-stopped
+
+  company-service:
+    image: ghcr.io/team0404/company-service:latest
+    container_name: sparta-company
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: company_service
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SCHEMA: public
+      DDL_AUTO: validate
+      SHOW_SQL: "false"
+      EUREKA_URL: http://eureka:8761/eureka/
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+    depends_on:
+      - postgres
+      - eureka
+      - hub-service
+    restart: unless-stopped
+
+  delivery-service:
+    image: ghcr.io/team0404/delivery-service:latest
+    container_name: sparta-delivery
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: delivery_service
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SCHEMA: public
+      DDL_AUTO: validate
+      SHOW_SQL: "false"
+      EUREKA_URL: http://eureka:8761/eureka/
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+    depends_on:
+      - postgres
+      - eureka
+      - hub-service
+    restart: unless-stopped
+
+  slack-service:
+    image: ghcr.io/team0404/slack-service:latest
+    container_name: sparta-slack
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: slack_service
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SCHEMA: public
+      DDL_AUTO: validate
+      SHOW_SQL: "false"
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      EUREKA_URL: http://eureka:8761/eureka/
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+    depends_on:
+      - postgres
+      - eureka
+    restart: unless-stopped
+
+  order-service:
+    image: ghcr.io/team0404/order-service:latest
+    container_name: sparta-order
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: order_service
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SCHEMA: public
+      DDL_AUTO: validate
+      SHOW_SQL: "false"
+      EUREKA_URL: http://eureka:8761/eureka/
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+    depends_on:
+      - postgres
+      - eureka
+      - company-service
+      - delivery-service
+      - slack-service
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   user-redis-data:
