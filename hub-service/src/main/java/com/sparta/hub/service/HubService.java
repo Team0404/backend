@@ -98,16 +98,6 @@ public class HubService {
         hub.update(request);
     }
 
-    // 허브 삭제(SoftDelete)
-    @Transactional
-    public void deleteHub(UUID hubId){
-        Hub hub = hubRepository.findByHubIdAndDeletedAtIsNull(hubId)
-                .orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
-
-        hub.softDelete(hubId);
-
-
-    }
 
     @Caching(evict = {
             @CacheEvict(cacheNames = "hubs", key = "#hubId"),
@@ -122,8 +112,9 @@ public class HubService {
                     allEntries = true
             )
     })
+
     @Transactional
-    public void requestDeactivation(UUID hubId, UUID userId) {
+    public void requestDeactivation(UUID hubId) {
         Hub hub = hubRepository.findByHubIdAndDeletedAtIsNull(hubId)
                 .orElseThrow(() -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
 
@@ -148,7 +139,7 @@ public class HubService {
             )
     })
     @Transactional
-    public void completeDeactivation(UUID hubId, UUID userId) {
+    public void completeDeactivation(UUID hubId, UUID deletedBy) {
         Hub hub = hubRepository.findByHubIdAndDeletedAtIsNull(hubId)
                 .orElseThrow(() ->
                         new BusinessException(HubErrorCode.HUB_NOT_FOUND));
@@ -160,8 +151,8 @@ public class HubService {
         List<HubRoute> routes =
                 hubRouteRepository.findAllActiveRoutesByHubId(hubId);
 
-        routes.forEach(route -> route.softDelete(userId));
-        hub.softDelete(userId);
+        routes.forEach(route -> route.softDelete(deletedBy));
+        hub.softDelete(deletedBy);
     }
 
 

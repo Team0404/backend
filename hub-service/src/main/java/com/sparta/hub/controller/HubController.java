@@ -137,7 +137,7 @@ public class HubController {
     @PreAuthorize("hasRole('MASTER')")
     public ApiResponse<Void> deleteHub(@PathVariable UUID hubId,
                                        @CurrentUser UserPrincipal userPrincipal) {
-        hubService.requestDeactivation(hubId, userPrincipal.getUserId());
+        hubService.requestDeactivation(hubId);
 
         return ApiResponse.success("허브 삭제 완료", null);
 
