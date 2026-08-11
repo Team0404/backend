@@ -1,5 +1,11 @@
 -- 제약 조건 설정
 
+-- 활성 상태인 동일 출발·도착 허브 경로의 중복 등록 방지
+-- Soft Delete된 경로(deleted_at IS NOT NULL)는 중복 검사에서 제외
+CREATE UNIQUE INDEX uk_hub_routes_active_departure_arrival
+    ON p_hub_routes (departure_hub_id, arrival_hub_id)
+    WHERE deleted_at IS NULL;
+
 
 -- 허브 운영 상태 컬럼 추가
 -- 기존 데이터와 신규 데이터의 기본 상태는 ACTIVE
