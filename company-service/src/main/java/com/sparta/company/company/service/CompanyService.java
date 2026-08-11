@@ -1,10 +1,13 @@
 package com.sparta.company.company.service;
 
+import com.sparta.common.dto.UserInfoResponse;
 import com.sparta.common.entity.UserRole;
 import com.sparta.common.exception.BusinessException;
 import com.sparta.common.security.UserPrincipal;
 import com.sparta.company.client.hub.HubClient;
+import com.sparta.company.client.hub.HubQueryService;
 import com.sparta.company.client.user.UserClient;
+import com.sparta.company.client.user.UserQueryService;
 import com.sparta.company.client.user.UserResponse;
 import com.sparta.company.company.dto.request.CompanyCreateRequest;
 import com.sparta.company.company.dto.request.CompanySearchCondition;
@@ -31,8 +34,8 @@ public class CompanyService {
     private final CompanyRepository companyRepository;
     private final CompanyQueryRepository companyQueryRepository;
     private final ProductRepository productRepository;
-    private final HubClient hubClient;
-    private final UserClient userClient;
+    private final HubQueryService hubQueryService;
+    private final UserQueryService userQueryService;
 
     @Transactional
     public CompanyResponse create(CompanyCreateRequest request, UserPrincipal userPrincipal) {
@@ -103,9 +106,7 @@ public class CompanyService {
     }
 
     private void validateHubExists(UUID hubId) {
-        try {
-            hubClient.getHub(hubId);
-        } catch (FeignException.NotFound e) {
+        if (!hubQueryService.existsHub(hubId)) {
             throw new BusinessException(CompanyErrorCode.INVALID_HUB_ID);
         }
     }
@@ -145,18 +146,18 @@ public class CompanyService {
     }
 
     private UUID getScopeHubId(UserPrincipal userPrincipal) {
-        UserResponse user = userClient.getUser(userPrincipal.getUserId().toString());
-        if (user.hubId() == null) {
+        UserInfoResponse user = userQueryService.getUserInfo(userPrincipal.getUserId());
+        if (user.getHubId() == null) {
             throw new BusinessException(CompanyErrorCode.FORBIDDEN_HUB_SCOPE);
         }
-        return user.hubId();
+        return user.getHubId();
     }
 
     private UUID getScopeCompanyId(UserPrincipal userPrincipal) {
-        UserResponse user = userClient.getUser(userPrincipal.getUserId().toString());
-        if (user.companyId() == null) {
+        UserInfoResponse user = userQueryService.getUserInfo(userPrincipal.getUserId());
+        if (user.getCompanyId() == null) {
             throw new BusinessException(CompanyErrorCode.FORBIDDEN_COMPANY_SCOPE);
         }
-        return user.companyId();
+        return user.getCompanyId();
     }
 }

@@ -18,6 +18,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -38,31 +40,39 @@ public class ProductController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('MASTER') or hasRole('HUB_MANAGER')")
     public ApiResponse<ProductResponse> create(@Valid @RequestBody ProductCreateRequest request,
-                                                             @CurrentUser UserPrincipal userPrincipal) {
+//                                               @CurrentUser UserPrincipal userPrincipal,
+                                               @AuthenticationPrincipal UserPrincipal userPrincipal) {
         return ApiResponse.success(productService.create(request, userPrincipal));
     }
 
     @PatchMapping("/{productId}")
+    @PreAuthorize("hasRole('MASTER') or hasRole('HUB_MANAGER') or hasRole('SUPPLIER_MANAGER')")
     public ApiResponse<ProductResponse> update(@PathVariable UUID productId,
                                                @RequestBody ProductUpdateRequest request,
-                                               @CurrentUser UserPrincipal userPrincipal) {
+//                                               @CurrentUser UserPrincipal userPrincipal,
+                                               @AuthenticationPrincipal UserPrincipal userPrincipal) {
         return ApiResponse.success(productService.update(productId, request, userPrincipal));
     }
 
     @DeleteMapping("/{productId}")
+    @PreAuthorize("hasRole('MASTER') or hasRole('HUB_MANAGER')")
     public ApiResponse<Void> delete(@PathVariable UUID productId,
-                                    @CurrentUser UserPrincipal userPrincipal) {
+//                                    @CurrentUser UserPrincipal userPrincipal,
+                                    @AuthenticationPrincipal UserPrincipal userPrincipal) {
         productService.delete(productId, userPrincipal);
         return ApiResponse.success(null);
     }
 
     @GetMapping("/{productId}")
+    @PreAuthorize("isAuthenticated()")
     public ApiResponse<ProductResponse> getOne(@PathVariable UUID productId) {
         return ApiResponse.success(productService.getOne(productId));
     }
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ApiResponse<PageResponse<ProductResponse>> search(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) UUID companyId,

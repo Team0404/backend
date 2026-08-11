@@ -18,7 +18,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        service: [ eureka-service, gateway-service, user-service ]
+        service: [ eureka-service, gateway-service, user-service, hub-service, company-service, delivery-service, slack-service, order-service ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
