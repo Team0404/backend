@@ -3,7 +3,6 @@ package com.sparta.order.controller;
 import com.sparta.common.constant.AuthHeaders;
 import com.sparta.common.response.ApiResponse;
 import com.sparta.common.response.PageResponse;
-import com.sparta.common.security.CurrentUser;
 import com.sparta.common.security.UserPrincipal;
 import com.sparta.order.dto.request.CreateOrderRequest;
 import com.sparta.order.dto.request.OrderSearchRequest;
@@ -21,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -42,7 +42,7 @@ public class OrderController {
     @PreAuthorize("hasRole('MASTER') or hasRole('HUB_MANAGER') or hasRole('SUPPLIER_MANAGER')")
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             @Valid @RequestBody CreateOrderRequest request,
-            @CurrentUser UserPrincipal currentUser,
+            @AuthenticationPrincipal UserPrincipal currentUser,
             @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
             @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
             @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
@@ -65,7 +65,7 @@ public class OrderController {
     public ApiResponse<PageResponse<OrderResponse>> getOrders(
             @Valid @ModelAttribute OrderSearchRequest request,
             Pageable pageable,
-            @CurrentUser UserPrincipal currentUser,
+            @AuthenticationPrincipal UserPrincipal currentUser,
             @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
             @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
             @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
@@ -87,7 +87,7 @@ public class OrderController {
     @PreAuthorize("isAuthenticated()")
     public ApiResponse<OrderResponse> getOrder(
             @PathVariable UUID orderId,
-            @CurrentUser UserPrincipal currentUser,
+            @AuthenticationPrincipal UserPrincipal currentUser,
             @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
             @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
             @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
@@ -109,7 +109,7 @@ public class OrderController {
     public ApiResponse<OrderResponse> updateOrder(
             @PathVariable UUID orderId,
             @Valid @RequestBody UpdateOrderRequest request,
-            @CurrentUser UserPrincipal currentUser,
+            @AuthenticationPrincipal UserPrincipal currentUser,
             @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
             @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
             @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
@@ -132,7 +132,7 @@ public class OrderController {
     public ApiResponse<OrderResponse> updateOrderStatus(
             @PathVariable UUID orderId,
             @Valid @RequestBody UpdateOrderStatusRequest request,
-            @CurrentUser UserPrincipal currentUser,
+            @AuthenticationPrincipal UserPrincipal currentUser,
             @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
             @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
             @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
@@ -154,7 +154,7 @@ public class OrderController {
     @PreAuthorize("hasRole('MASTER') or hasRole('HUB_MANAGER') or hasRole('SUPPLIER_MANAGER')")
     public ApiResponse<OrderResponse> cancelOrder(
             @PathVariable UUID orderId,
-            @CurrentUser UserPrincipal currentUser,
+            @AuthenticationPrincipal UserPrincipal currentUser,
             @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
             @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
             @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
@@ -175,7 +175,7 @@ public class OrderController {
     @PreAuthorize("hasRole('MASTER') or hasRole('HUB_MANAGER')")
     public ApiResponse<Void> deleteOrder(
             @PathVariable UUID orderId,
-            @CurrentUser UserPrincipal currentUser,
+            @AuthenticationPrincipal UserPrincipal currentUser,
             @RequestHeader(value = AuthHeaders.HUB_ID, required = false) UUID requestHubId,
             @RequestHeader(value = AuthHeaders.COMPANY_ID, required = false) UUID requestCompanyId,
             @RequestHeader(value = AuthHeaders.DELIVERY_MANAGER_ID, required = false) UUID requestDeliveryManagerId
