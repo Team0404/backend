@@ -18,6 +18,10 @@ dependencies {
     // DB
     runtimeOnly 'org.postgresql:postgresql'
 
+    // Redis 캐싱 - HubClient(허브 존재 여부)/UserClient(담당 허브·소속 업체) 조회 결과 캐싱
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+
     // QueryDSL - 검색/정렬(CompanyQueryRepository, ProductQueryRepository)에 사용.
 //    implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
 //    annotationProcessor 'com.querydsl:querydsl-apt:5.0.0:jakarta'

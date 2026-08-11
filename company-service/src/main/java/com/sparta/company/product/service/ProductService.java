@@ -1,10 +1,12 @@
 package com.sparta.company.product.service;
 
+import com.sparta.common.dto.UserInfoResponse;
 import com.sparta.common.entity.UserRole;
 import com.sparta.common.exception.BusinessException;
 import com.sparta.common.exception.ErrorCode;
 import com.sparta.common.security.UserPrincipal;
 import com.sparta.company.client.user.UserClient;
+import com.sparta.company.client.user.UserQueryService;
 import com.sparta.company.client.user.UserResponse;
 import com.sparta.company.company.entity.Company;
 import com.sparta.company.company.repository.CompanyRepository;
@@ -30,7 +32,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final ProductQueryRepository productQueryRepository;
     private final CompanyRepository companyRepository;
-    private final UserClient userClient;
+    private final UserQueryService userQueryService;
 
     @Transactional
     public ProductResponse create(ProductCreateRequest request, UserPrincipal userPrincipal) {
@@ -173,18 +175,18 @@ public class ProductService {
     }
 
     private UUID getScopeHubId(UserPrincipal userPrincipal) {
-        UserResponse user = userClient.getUser(userPrincipal.getUserId().toString());
-        if (user.hubId() == null) {
+        UserInfoResponse user = userQueryService.getUserInfo(userPrincipal.getUserId());
+        if (user.getHubId() == null) {
             throw new BusinessException(ProductErrorCode.FORBIDDEN_HUB_SCOPE);
         }
-        return user.hubId();
+        return user.getHubId();
     }
 
     private UUID getScopeCompanyId(UserPrincipal userPrincipal) {
-        UserResponse user = userClient.getUser(userPrincipal.getUserId().toString());
-        if (user.companyId() == null) {
+        UserInfoResponse user = userQueryService.getUserInfo(userPrincipal.getUserId());
+        if (user.getCompanyId() == null) {
             throw new BusinessException(ProductErrorCode.FORBIDDEN_COMPANY_SCOPE);
         }
-        return user.companyId();
+        return user.getCompanyId();
     }
 }
