@@ -9,19 +9,15 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    default-schema: ${DB_SCHEMA:public}
-    clean-disabled: true
-    validate-migration-naming: true
   jpa:
     hibernate:
-      ddl-auto: ${DDL_AUTO:validate}
+      ddl-auto: ${DDL_AUTO:update}
     show-sql: ${SHOW_SQL:true}
     properties:
       hibernate:
         default_schema: ${DB_SCHEMA:hub_service}
+        hbm2ddl:
+          create_namespaces: true
         format_sql: true
   # Redis 캐싱 (허브 정보, 허브 간 이동정보)
   data:
