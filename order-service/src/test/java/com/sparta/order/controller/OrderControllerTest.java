@@ -1,6 +1,8 @@
 package com.sparta.order.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sparta.common.config.SecurityConfig;
+import com.sparta.common.config.WebConfig;
 import com.sparta.common.constant.AuthHeaders;
 import com.sparta.common.entity.UserRole;
 import com.sparta.common.response.PageResponse;
@@ -19,8 +21,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -39,6 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(OrderController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import({SecurityConfig.class, WebConfig.class})
 class OrderControllerTest {
 
     private static final String BASE_URL = "/api/v1/orders";
@@ -54,6 +60,7 @@ class OrderControllerTest {
 
     @Test
     @DisplayName("주문 생성 API는 201과 주문 응답을 반환한다")
+    @WithMockUser(roles = "SUPPLIER_MANAGER")
     void createOrder() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID hubId = UUID.randomUUID();
@@ -74,6 +81,7 @@ class OrderControllerTest {
         mockMvc.perform(post(BASE_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "supplier")
                         .header(AuthHeaders.USER_ROLE, UserRole.SUPPLIER_MANAGER.name())
                         .header(AuthHeaders.HUB_ID, hubId)
                         .header(AuthHeaders.COMPANY_ID, companyId)
@@ -95,6 +103,7 @@ class OrderControllerTest {
 
     @Test
     @DisplayName("주문 목록 조회 API는 페이지 응답을 반환한다")
+    @WithMockUser(roles = "MASTER")
     void getOrders() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID hubId = UUID.randomUUID();
@@ -115,6 +124,7 @@ class OrderControllerTest {
 
         mockMvc.perform(get(BASE_URL)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "master")
                         .header(AuthHeaders.USER_ROLE, UserRole.MASTER.name())
                         .param("companyId", companyId.toString())
                         .param("status", OrderStatus.READY.name())
@@ -131,6 +141,7 @@ class OrderControllerTest {
 
     @Test
     @DisplayName("주문 상세 조회 API는 주문 응답을 반환한다")
+    @WithMockUser(roles = "HUB_MANAGER")
     void getOrder() throws Exception {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
@@ -142,6 +153,7 @@ class OrderControllerTest {
 
         mockMvc.perform(get(BASE_URL + "/{orderId}", orderId)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "hub-manager")
                         .header(AuthHeaders.USER_ROLE, UserRole.HUB_MANAGER.name())
                         .header(AuthHeaders.HUB_ID, hubId))
                 .andExpect(status().isOk())
@@ -151,6 +163,7 @@ class OrderControllerTest {
 
     @Test
     @DisplayName("주문 수정 API는 수정된 주문 응답을 반환한다")
+    @WithMockUser(roles = "SUPPLIER_MANAGER")
     void updateOrder() throws Exception {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
@@ -169,6 +182,7 @@ class OrderControllerTest {
         mockMvc.perform(patch(BASE_URL + "/{orderId}", orderId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "supplier")
                         .header(AuthHeaders.USER_ROLE, UserRole.SUPPLIER_MANAGER.name())
                         .header(AuthHeaders.COMPANY_ID, companyId)
                         .content(objectMapper.writeValueAsString(request)))
@@ -179,6 +193,7 @@ class OrderControllerTest {
 
     @Test
     @DisplayName("주문 상태 변경 API는 변경된 주문 응답을 반환한다")
+    @WithMockUser(roles = "HUB_MANAGER")
     void updateOrderStatus() throws Exception {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
@@ -193,6 +208,7 @@ class OrderControllerTest {
         mockMvc.perform(patch(BASE_URL + "/{orderId}/status", orderId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "hub-manager")
                         .header(AuthHeaders.USER_ROLE, UserRole.HUB_MANAGER.name())
                         .header(AuthHeaders.HUB_ID, hubId)
                         .content(objectMapper.writeValueAsString(request)))
@@ -203,6 +219,7 @@ class OrderControllerTest {
 
     @Test
     @DisplayName("주문 취소 API는 취소된 주문 응답을 반환한다")
+    @WithMockUser(roles = "SUPPLIER_MANAGER")
     void cancelOrder() throws Exception {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
@@ -214,6 +231,7 @@ class OrderControllerTest {
 
         mockMvc.perform(patch(BASE_URL + "/{orderId}/cancel", orderId)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "supplier")
                         .header(AuthHeaders.USER_ROLE, UserRole.SUPPLIER_MANAGER.name())
                         .header(AuthHeaders.COMPANY_ID, companyId))
                 .andExpect(status().isOk())
@@ -223,6 +241,7 @@ class OrderControllerTest {
 
     @Test
     @DisplayName("주문 삭제 API는 성공 응답을 반환한다")
+    @WithMockUser(roles = "HUB_MANAGER")
     void deleteOrder() throws Exception {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
@@ -232,11 +251,55 @@ class OrderControllerTest {
 
         mockMvc.perform(delete(BASE_URL + "/{orderId}", orderId)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "hub-manager")
                         .header(AuthHeaders.USER_ROLE, UserRole.HUB_MANAGER.name())
                         .header(AuthHeaders.HUB_ID, hubId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("주문 삭제가 완료되었습니다."));
+    }
+
+    @Test
+    @DisplayName("인증 정보가 없으면 주문 생성 API는 차단된다")
+    @WithAnonymousUser
+    void createOrderWithoutAuthentication() throws Exception {
+        CreateOrderRequest request = new CreateOrderRequest(
+                UUID.randomUUID(),
+                List.of(new CreateOrderRequest.OrderItemRequest(UUID.randomUUID(), 3)),
+                "문 앞에 놓아주세요",
+                LocalDateTime.now().plusDays(1)
+        );
+
+        mockMvc.perform(post(BASE_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(AuthHeaders.USER_ID, UUID.randomUUID())
+                        .header(AuthHeaders.USERNAME, "anonymous")
+                        .header(AuthHeaders.USER_ROLE, UserRole.SUPPLIER_MANAGER.name())
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("허용되지 않은 Role은 주문 생성 API를 호출할 수 없다")
+    @WithMockUser(roles = "DELIVERY_MANAGER")
+    void createOrderForbiddenRole() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID companyId = UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest(
+                companyId,
+                List.of(new CreateOrderRequest.OrderItemRequest(UUID.randomUUID(), 3)),
+                "문 앞에 놓아주세요",
+                LocalDateTime.now().plusDays(1)
+        );
+
+        mockMvc.perform(post(BASE_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "delivery")
+                        .header(AuthHeaders.USER_ROLE, UserRole.DELIVERY_MANAGER.name())
+                        .header(AuthHeaders.COMPANY_ID, companyId)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
     }
 
     private OrderResponse sampleOrderResponse(UUID orderId, UUID companyId, UUID hubId) {
