@@ -17,4 +17,8 @@ dependencies {
 
     // DB
     runtimeOnly 'org.postgresql:postgresql'
+
+    // DB 마이그레이션
+    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 }

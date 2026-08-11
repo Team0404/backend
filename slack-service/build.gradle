@@ -22,6 +22,10 @@ dependencies {
     // API 문서
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
 
+    // DB 스키마 마이그레이션 (Hibernate ddl-auto 대신 SQL로 버전 관리)
+    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'org.flywaydb:flyway-database-postgresql'
+
     // DB
     runtimeOnly 'org.postgresql:postgresql'
 }

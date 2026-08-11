@@ -9,12 +9,19 @@ spring:
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:1234}
     driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: ${DB_SCHEMA:public}
+    clean-disabled: true
+    validate-migration-naming: true
   jpa:
     hibernate:
-      ddl-auto: ${DDL_AUTO:update}
+      ddl-auto: ${DDL_AUTO:validate}
     show-sql: ${SHOW_SQL:true}
     properties:
       hibernate:
+        default_schema: ${DB_SCHEMA:public}
         format_sql: true
   data:
     redis:
