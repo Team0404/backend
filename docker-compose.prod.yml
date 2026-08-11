@@ -154,6 +154,29 @@ services:
       - hub-service
     restart: unless-stopped
 
+  slack-service:
+    image: ghcr.io/team0404/slack-service:latest
+    container_name: sparta-slack
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: slack_service
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SCHEMA: public
+      DDL_AUTO: validate
+      SHOW_SQL: "false"
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      EUREKA_URL: http://eureka:8761/eureka/
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+    depends_on:
+      - postgres
+      - eureka
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   user-redis-data:
