@@ -38,7 +38,7 @@ public class HubService {
     @Transactional(readOnly = true)
     public HubResponse findHub(UUID hubId){
         Hub hub = hubRepository.findByHubIdAndDeletedAtIsNull(hubId).orElseThrow(()
-                -> new RuntimeException("없는 번호 입니다."));
+                -> new BusinessException(HubErrorCode.HUB_NOT_FOUND));
 
         return new HubResponse(hub);
 
@@ -154,15 +154,6 @@ public class HubService {
         routes.forEach(route -> route.softDelete(deletedBy));
         hub.softDelete(deletedBy);
     }
-
-
-
-
-
-
-
-
-
 
 
 

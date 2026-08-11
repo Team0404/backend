@@ -2,6 +2,7 @@ package com.sparta.hub.service;
 
 import com.sparta.common.exception.BusinessException;
 import com.sparta.hub.dto.request.HubRouteCreateRequest;
+import com.sparta.hub.dto.request.HubRouteUpdateRequest;
 import com.sparta.hub.dto.response.HubRoutePathResponse;
 import com.sparta.hub.dto.response.HubRouteResponse;
 import com.sparta.hub.entity.Hub;
@@ -160,11 +161,13 @@ public class HubRouteService {
             @CacheEvict(cacheNames = "routePaths", allEntries = true)
     })
     @Transactional
-    public void hubRouteUpdate(UUID routeId){
-        HubRoute hubRoute = hubRouteRepository.findByHubRouteIdAndDeletedAtIsNull(routeId)
-                .orElseThrow(() -> new BusinessException(HubRouteErrorCode.HUB_ROUTE_NOT_FOUND));
+    public void hubRouteUpdate(UUID routeId, HubRouteUpdateRequest request){
+        HubRoute route =
+                hubRouteRepository.findByHubRouteIdAndDeletedAtIsNull(routeId)
+                        .orElseThrow(() ->
+                                new BusinessException(HubRouteErrorCode.HUB_ROUTE_NOT_FOUND));
 
-        hubRoute.updateRoute(hubRoute.getDurationMinutes(),hubRoute.getDistanceKm());
+        route.updateRoute(request.getDurationMinutes(), request.getDistanceKm());
 
     }
 
@@ -176,11 +179,15 @@ public class HubRouteService {
             @CacheEvict(cacheNames = "routePaths", allEntries = true)
     })
     @Transactional
-    public void deleteHubRoute(UUID id){
-        HubRoute hubroute = hubRouteRepository.findByHubRouteIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new RuntimeException("존재하지 않은 라우터 입니다."));
+    public void deleteHubRoute(UUID routeId, UUID deletedBy){
+        HubRoute route =
+                hubRouteRepository.findByHubRouteIdAndDeletedAtIsNull(routeId)
+                        .orElseThrow(() ->
+                                new BusinessException(
+                                        HubRouteErrorCode.HUB_ROUTE_NOT_FOUND
+                                ));
 
-        hubroute.softDelete(id);
+        route.softDelete(deletedBy);
 
     }
 

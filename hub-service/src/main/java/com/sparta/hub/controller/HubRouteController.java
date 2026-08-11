@@ -1,7 +1,10 @@
 package com.sparta.hub.controller;
 
 import com.sparta.common.response.ApiResponse;
+import com.sparta.common.security.CurrentUser;
+import com.sparta.common.security.UserPrincipal;
 import com.sparta.hub.dto.request.HubRouteCreateRequest;
+import com.sparta.hub.dto.request.HubRouteUpdateRequest;
 import com.sparta.hub.dto.response.HubResponse;
 import com.sparta.hub.dto.response.HubRoutePathResponse;
 import com.sparta.hub.dto.response.HubRouteResponse;
@@ -114,8 +117,9 @@ public class HubRouteController {
     // 이동 정보 수정
     @PatchMapping("/{routeId}")
     @PreAuthorize("hasRole('MASTER')")
-    public ApiResponse<Void> updateHubRoute(@PathVariable UUID routeId){
-        hubRouteService.hubRouteUpdate(routeId);
+    public ApiResponse<Void> updateHubRoute(@PathVariable UUID routeId,
+                                            @Valid @RequestBody HubRouteUpdateRequest request){
+        hubRouteService.hubRouteUpdate(routeId, request);
         return ApiResponse.success("허브 라우터 수정 완료", null);
     }
 
@@ -123,10 +127,11 @@ public class HubRouteController {
     //이동 정보 삭제
     @DeleteMapping("/{routeId}")
     @PreAuthorize("hasRole('MASTER')")
-    public ApiResponse<Void> deleteHubRoute(@PathVariable UUID routeId){
-        hubRouteService.deleteHubRoute(routeId);
+    public ApiResponse<Void> deleteHubRoute(@PathVariable UUID routeId,
+                                            @CurrentUser UserPrincipal principal){
+        hubRouteService.deleteHubRoute(routeId, principal.getUserId());
 
-        return ApiResponse.success("허브 라우터 삭제 완료", null);
+        return ApiResponse.success("허브 경로 삭제 완료", null);
 
     }
 

@@ -29,6 +29,8 @@ public interface HubRouteRepository extends JpaRepository<HubRoute, UUID> {
         JOIN FETCH hr.arrivalHub ah
         WHERE dh.hubId = :departureHubId
         AND ah.hubId = :arrivalHubId
+        AND dh.status = com.sparta.hub.entity.enums.HubStatus.ACTIVE
+        AND ah.status = com.sparta.hub.entity.enums.HubStatus.ACTIVE
         AND hr.deletedAt IS NULL
         AND dh.deletedAt IS NULL
         AND ah.deletedAt IS NULL
