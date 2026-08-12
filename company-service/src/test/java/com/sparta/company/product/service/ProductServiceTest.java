@@ -214,6 +214,16 @@ class ProductServiceTest {
     void decreaseStock_idempotent_sameReferenceIdSkipped() {
         // given
         String orderId = "order-123";
+        Product product = Product.builder()
+                .name("마른오징어 가공품")
+                .company(company)
+                .hubId(hubId)
+                .price(15000L)
+                .stockQuantity(70L) // 이미 첫 요청 때 100 -> 70으로 반영된 상태를 가정
+                .build();
+
+        // 락(findByIdForUpdate)은 동시 요청을 직렬화하기 위해 항상 먼저 호출됨
+        given(productRepository.findByIdForUpdate(productId)).willReturn(Optional.of(product));
         given(stockMovementRepository.existsByProductIdAndReferenceIdAndMovementType(
                 productId, orderId, ProductStockMovement.MovementType.DECREASE))
                 .willReturn(true); // 이미 처리된 요청
@@ -221,8 +231,8 @@ class ProductServiceTest {
         // when
         productService.decreaseStock(productId, 30, orderId);
 
-        // then - 이미 처리된 요청이므로 락 조회/저장 자체가 일어나지 않아야 함
-        verify(productRepository, never()).findByIdForUpdate(any());
+        // then - 락은 잡았지만(직렬화 목적), 이미 처리된 요청이라 재고/이력은 그대로여야 함
+        assertThat(product.getStockQuantity()).isEqualTo(70L); // 30 추가 차감 안 됨
         verify(stockMovementRepository, never()).save(any());
     }
 
