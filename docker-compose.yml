@@ -1,10 +1,16 @@
 # 로컬 개발용 인프라 + 앱 컨테이너
 #
-#   docker compose up -d                  # 인프라(postgres/redis/zipkin)만 기동
+#   docker compose up -d                  # 인프라(postgres/서비스별 redis/zipkin)만 기동
 #   docker compose --profile apps up -d   # 인프라 + eureka + gateway 까지 기동
 #
 # 앱은 보통 로컬에서 ./gradlew :서비스:bootRun 으로 띄우고,
 # 인프라만 docker 로 올리는 방식을 권장한다. (apps 프로필은 통합 확인용)
+#
+# ⚠️ 보안: 모든 포트는 127.0.0.1(로컬 전용)에만 바인딩한다.
+#    0.0.0.0 으로 열면 Docker Desktop 방화벽 예외 때문에 인터넷에 노출되어
+#    외부 봇이 DB/Redis 를 스캔·공격할 수 있다. 반드시 로컬 바인딩 유지.
+#    운영(EC2)에서는 포트 개방 대신 보안그룹/방화벽으로 접근을 제어한다.
+#    또한 .env 의 DB_PASSWORD 는 반드시 강력한 값으로 설정할 것.
 
 services:
   # ---------------- 인프라 ----------------
@@ -16,7 +22,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: postgres
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       # 서비스별 DB 생성 스크립트 (최초 기동 시 1회 실행)
@@ -27,17 +33,50 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
+  # hub-service 캐시 전용 Redis
+  hub-redis:
     image: redis:7-alpine
-    container_name: sparta-redis
+    container_name: sparta-hub-redis
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${HUB_REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # company-service 캐시 전용 Redis
+  company-redis:
+    image: redis:7-alpine
+    container_name: sparta-company-redis
+    ports:
+      - "127.0.0.1:${COMPANY_REDIS_PORT:-6381}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # user-service Refresh Token 전용 Redis
+  user-redis:
+    image: redis:7-alpine
+    container_name: sparta-user-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "127.0.0.1:${USER_REDIS_PORT:-6380}:6379"
+    volumes:
+      - user-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   zipkin:
     image: openzipkin/zipkin:latest
     container_name: sparta-zipkin
     ports:
-      - "9411:9411"
+      - "127.0.0.1:9411:9411"
 
   # ---------------- 앱 (profile: apps) ----------------
   eureka:
@@ -47,7 +86,7 @@ services:
     container_name: sparta-eureka
     profiles: ["apps"]
     ports:
-      - "8761:8761"
+      - "127.0.0.1:8761:8761"
 
   gateway:
     build:
@@ -56,14 +95,18 @@ services:
     container_name: sparta-gateway
     profiles: ["apps"]
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       EUREKA_URL: http://eureka:8761/eureka/
       ZIPKIN_URL: http://zipkin:9411/api/v2/spans
-      JWT_SECRET: ${JWT_SECRET:-replace-with-a-long-random-secret-key}
+      JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-please-override-in-production-0123456789}
+      USER_REDIS_HOST: user-redis
+      USER_REDIS_PORT: 6379
     depends_on:
       - eureka
+      - user-redis
       - zipkin
 
 volumes:
   postgres-data:
+  user-redis-data:

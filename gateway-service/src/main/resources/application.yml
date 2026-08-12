@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: gateway-service
+  data:
+    redis:
+      host: ${USER_REDIS_HOST:localhost}
+      port: ${USER_REDIS_PORT:6380}
   cloud:
     gateway:
       server:
@@ -18,27 +22,77 @@ spring:
             - id: user-service
               uri: lb://user-service
               predicates:
-                - Path=/api/users/**, /api/auth/**
+                - Path=/api/v1/users/**, /api/v1/auth/**
             - id: hub-service
               uri: lb://hub-service
               predicates:
-                - Path=/api/hubs/**, /api/hub-routes/**
+                - Path=/api/v1/hubs/**, /api/v1/hub-routes/**
             - id: company-service
               uri: lb://company-service
               predicates:
-                - Path=/api/companies/**, /api/products/**
+                - Path=/api/v1/companies/**, /api/v1/products/**
             - id: order-service
               uri: lb://order-service
               predicates:
-                - Path=/api/orders/**
+                - Path=/api/v1/orders/**
             - id: delivery-service
               uri: lb://delivery-service
               predicates:
-                - Path=/api/deliveries/**
+                - Path=/api/v1/deliveries/**
             - id: slack-service
               uri: lb://slack-service
               predicates:
-                - Path=/api/slack/**
+                - Path=/api/v1/slack-messages/**, /api/v1/ai-messages/**, /api/v1/ai/**
+
+            # --- Swagger(OpenAPI) 문서 프록시: /{service}/v3/api-docs → 각 서비스의 /v3/api-docs ---
+            - id: user-service-docs
+              order: -1
+              uri: lb://user-service
+              predicates:
+                - Path=/user-service/v3/api-docs
+              filters:
+                - PreserveHostHeader
+                - RewritePath=/user-service/(?<seg>.*), /$\{seg}
+            - id: hub-service-docs
+              order: -1
+              uri: lb://hub-service
+              predicates:
+                - Path=/hub-service/v3/api-docs
+              filters:
+                - PreserveHostHeader
+                - RewritePath=/hub-service/(?<seg>.*), /$\{seg}
+            - id: company-service-docs
+              order: -1
+              uri: lb://company-service
+              predicates:
+                - Path=/company-service/v3/api-docs
+              filters:
+                - PreserveHostHeader
+                - RewritePath=/company-service/(?<seg>.*), /$\{seg}
+            - id: order-service-docs
+              order: -1
+              uri: lb://order-service
+              predicates:
+                - Path=/order-service/v3/api-docs
+              filters:
+                - PreserveHostHeader
+                - RewritePath=/order-service/(?<seg>.*), /$\{seg}
+            - id: delivery-service-docs
+              order: -1
+              uri: lb://delivery-service
+              predicates:
+                - Path=/delivery-service/v3/api-docs
+              filters:
+                - PreserveHostHeader
+                - RewritePath=/delivery-service/(?<seg>.*), /$\{seg}
+            - id: slack-service-docs
+              order: -1
+              uri: lb://slack-service
+              predicates:
+                - Path=/slack-service/v3/api-docs
+              filters:
+                - PreserveHostHeader
+                - RewritePath=/slack-service/(?<seg>.*), /$\{seg}
 
 # JWT 검증에 사용할 시크릿 (운영은 JWT_SECRET 환경변수로 주입, 로컬은 기본값 사용)
 # user-service(발급)와 반드시 동일한 값을 사용해야 함
@@ -58,3 +112,23 @@ management:
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_URL:http://localhost:9411/api/v2/spans}
+
+# Swagger 통합: 게이트웨이(8080) 한 곳에서 모든 서비스 문서를 드롭다운으로 조회
+# 각 서비스가 실행+Eureka 등록된 상태여야 해당 항목이 로드된다.
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    use-root-path: true
+    urls:
+      - name: user-service
+        url: /user-service/v3/api-docs
+      - name: hub-service
+        url: /hub-service/v3/api-docs
+      - name: company-service
+        url: /company-service/v3/api-docs
+      - name: order-service
+        url: /order-service/v3/api-docs
+      - name: delivery-service
+        url: /delivery-service/v3/api-docs
+      - name: slack-service
+        url: /slack-service/v3/api-docs

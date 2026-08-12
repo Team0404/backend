@@ -8,11 +8,23 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
-    // 서비스 디스커버리
+    // 서비스 디스커버리 + 서비스 간 통신
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+    // 외부 API(슬랙 Webhook / Gemini) 일시 오류에 대한 즉시 재시도
+    implementation 'org.springframework.retry:spring-retry'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+
+    // AI (A1~A7, Gemini Developer API — API 키 인증)
+    implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
 
     // API 문서
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
+
+    // DB 스키마 마이그레이션 (Hibernate ddl-auto 대신 SQL로 버전 관리)
+    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 
     // DB
     runtimeOnly 'org.postgresql:postgresql'

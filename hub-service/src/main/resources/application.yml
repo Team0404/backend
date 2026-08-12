@@ -5,23 +5,29 @@ spring:
   application:
     name: hub-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sparta_logistics}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:hub_service}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: ${DB_SCHEMA:public}
+    clean-disabled: true
+    validate-migration-naming: true
   jpa:
     hibernate:
-      ddl-auto: ${DDL_AUTO:update}
+      ddl-auto: ${DDL_AUTO:validate}
     show-sql: ${SHOW_SQL:true}
     properties:
       hibernate:
-        default_schema: ${DB_SCHEMA:hub_service}
+        default_schema: ${DB_SCHEMA:public}
         format_sql: true
   # Redis 캐싱 (허브 정보, 허브 간 이동정보)
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      host: ${HUB_REDIS_HOST:localhost}
+      port: ${HUB_REDIS_PORT:6379}
   cache:
     type: redis
 

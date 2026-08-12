@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.uk_hub_routes_active_departure_arrival;

@@ -5,18 +5,40 @@ spring:
   application:
     name: slack-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sparta_logistics}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:slack_service}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: ${DB_SCHEMA:public}
+    clean-disabled: true
+    validate-migration-naming: true
   jpa:
     hibernate:
-      ddl-auto: ${DDL_AUTO:update}
+      ddl-auto: ${DDL_AUTO:validate}
     show-sql: ${SHOW_SQL:true}
     properties:
       hibernate:
-        default_schema: ${DB_SCHEMA:slack_service}
+        default_schema: ${DB_SCHEMA:public}
         format_sql: true
+  ai:
+    # AI 발송시한 산출 (A1/A4, Gemini Developer API)
+    # ⚠️ GEMINI_API_KEY 가 없으면 애플리케이션이 기동되지 않는다. 키는 .env 로 주입한다.
+    # ⚠️ 모델명은 구글이 예고 없이 지원을 중단한다(gemini-2.0-flash / gemini-2.5-flash 모두 404 확인).
+    #    버전 고정 대신 별칭(-latest)을 기본값으로 두어 중단에 덜 취약하게 한다.
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:your-api-key}
+        chat:
+          options:
+            model: ${GEMINI_MODEL:gemini-flash-latest}
+            temperature: 0.2
+    retry:
+      # 프레임워크 자체 재시도는 끈다(=1회만 시도). 즉시 재시도는 GeminiClient의 @Retryable이 전담한다.
+      # 0으로 두면 Spring Retry의 RetryTemplateBuilder가 "시도 횟수는 양수여야 한다"며 빈 생성 자체를 실패시킨다.
+      max-attempts: 1
 
 # 슬랙 메시지 발송 (Incoming Webhook 또는 Bot Token)
 slack:
