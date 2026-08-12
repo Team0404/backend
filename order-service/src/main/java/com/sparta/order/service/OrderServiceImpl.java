@@ -71,14 +71,14 @@ public class OrderServiceImpl implements OrderService {
 
         String productInfo = String.join(", ", productSummaries);
 
-        Order savedOrder = orderRepository.save(Order.builder()
+        Order order = Order.builder()
                 .orderNumber(generateOrderNumber())
                 .companyId(company.companyId())
                 .hubId(company.hubId())
                 .requestNote(request.requestNote())
                 .deliveryDeadline(request.deliveryDeadline())
                 .status(OrderStatus.PENDING)
-                .build());
+                .build();
 
         //log.info("company.companyId() = {}", company.companyId());
         //log.info("company.hubId() = {}", company.hubId());
@@ -89,6 +89,7 @@ public class OrderServiceImpl implements OrderService {
         );
 
         List<OrderItem> createdOrderItems = new ArrayList<>();
+        Order savedOrder = null;
 
         try {
             for (CreateOrderRequest.OrderItemRequest itemRequest : request.orderItems()) {
@@ -102,9 +103,11 @@ public class OrderServiceImpl implements OrderService {
                         .quantity(itemRequest.quantity())
                         .build();
 
-                savedOrder.addOrderItem(orderItem);
+                order.addOrderItem(orderItem);
                 createdOrderItems.add(orderItem);
             }
+
+            savedOrder = orderRepository.save(order);
 
             DeliveryCreateResponse delivery = requireData(
                     deliveryClient.createDelivery(new DeliveryCreateRequest(
@@ -244,7 +247,9 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        order.updateStatus(OrderStatus.FAILED);
+        if (order != null) {
+            order.updateStatus(OrderStatus.FAILED);
+        }
 
         if (!restoreFailures.isEmpty()) {
             return "재고 복구 실패 항목=" + String.join(", ", restoreFailures);
