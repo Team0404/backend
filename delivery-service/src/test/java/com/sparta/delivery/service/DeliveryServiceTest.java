@@ -8,8 +8,11 @@ import com.sparta.common.response.ApiResponse;
 import com.sparta.common.response.PageResponse;
 import com.sparta.delivery.client.AiClient;
 import com.sparta.delivery.client.HubClient;
+import com.sparta.delivery.client.HubRouteClient;
 import com.sparta.delivery.client.OrderClient;
 import com.sparta.delivery.client.UserClient;
+import com.sparta.delivery.client.dto.HubRoutePathResponseDto;
+import com.sparta.delivery.client.dto.HubRouteSegmentResponseDto;
 import com.sparta.delivery.domain.dto.request.DeliveryCancelRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryCreateRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryRouteUpdateRequestDto;
@@ -38,6 +41,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import java.math.BigDecimal;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -63,6 +68,7 @@ class DeliveryServiceTest {
     private UserClient userClient;
     private OrderClient orderClient;
     private HubClient hubClient;
+    private HubRouteClient hubRouteClient;
     private AiClient aiClient;
     private ApplicationEventPublisher eventPublisher;
     private DeliveryService deliveryService;
@@ -76,12 +82,13 @@ class DeliveryServiceTest {
         userClient = mock(UserClient.class);
         orderClient = mock(OrderClient.class);
         hubClient = mock(HubClient.class);
+        hubRouteClient = mock(HubRouteClient.class);
         aiClient = mock(AiClient.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         deliveryService = new DeliveryService(
                 deliveryRepository, deliveryRouteRepository, deliveryManagerRepository,
                 deliveryManagerCursorRepository, userClient, orderClient, hubClient,
-                aiClient, eventPublisher
+                hubRouteClient, aiClient, eventPublisher
         );
 
         when(deliveryManagerCursorRepository.save(any(DeliveryManagerCursor.class)))
@@ -95,6 +102,7 @@ class DeliveryServiceTest {
         UUID managerB = UUID.randomUUID();
         DeliveryCreateRequestDto request = createRequest(destHubId);
 
+        stubEmptyRoutePath(request.getOriginHubId(), destHubId);
         when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(false);
         when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, destHubId))
                 .thenReturn(List.of(companyManager(managerA, destHubId, 0), companyManager(managerB, destHubId, 1)));
@@ -126,6 +134,7 @@ class DeliveryServiceTest {
         UUID destHubId = UUID.randomUUID();
         DeliveryCreateRequestDto request = createRequest(destHubId);
 
+        stubEmptyRoutePath(request.getOriginHubId(), destHubId);
         when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(false);
         when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, destHubId))
                 .thenReturn(List.of());
@@ -151,6 +160,7 @@ class DeliveryServiceTest {
         UUID destHubId = UUID.randomUUID();
         DeliveryCreateRequestDto request = createRequest(destHubId);
 
+        stubEmptyRoutePath(request.getOriginHubId(), destHubId);
         when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(false);
         when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, destHubId))
                 .thenReturn(List.of());
@@ -160,6 +170,99 @@ class DeliveryServiceTest {
         ApiResponse<?> response = deliveryService.createDelivery(request, UUID.randomUUID(), UserRole.SUPPLIER_MANAGER, "order-service");
 
         assertThat(response.isSuccess()).isTrue();
+    }
+
+    @Test
+    void createDelivery_buildsRoutesFromHubServicePath() {
+        UUID originHubId = UUID.randomUUID();
+        UUID destHubId = UUID.randomUUID();
+        UUID waypointHubId = UUID.randomUUID();
+        UUID hubManagerA = UUID.randomUUID();
+        UUID hubManagerB = UUID.randomUUID();
+        DeliveryCreateRequestDto request = DeliveryCreateRequestDto.builder()
+                .orderId(UUID.randomUUID())
+                .originHubId(originHubId)
+                .destHubId(destHubId)
+                .deliveryAddress("부산시 사하구 낙동대로 1번길 1")
+                .recipientName("김말숙")
+                .recipientSlackId("U0123ABC")
+                .build();
+
+        when(hubRouteClient.findRoutePath(originHubId, destHubId))
+                .thenReturn(ApiResponse.success(HubRoutePathResponseDto.builder()
+                        .departureHubId(originHubId)
+                        .arrivalHubId(destHubId)
+                        .routes(List.of(
+                                segment(originHubId, waypointHubId),
+                                segment(waypointHubId, destHubId)
+                        ))
+                        .build()));
+        when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(false);
+        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, destHubId))
+                .thenReturn(List.of());
+        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(eq(DeliveryManagerType.HUB), any()))
+                .thenReturn(List.of(companyManager(hubManagerA, null, 0), companyManager(hubManagerB, null, 1)));
+        when(deliveryManagerCursorRepository.findLastAssignedManagerIdByTypeAndHubIdAndDeletedAtIsNull(eq(DeliveryManagerType.HUB), any()))
+                .thenReturn(Optional.empty());
+        when(deliveryRepository.saveAndFlush(any(Delivery.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        deliveryService.createDelivery(request, UUID.randomUUID(), UserRole.MASTER, null);
+
+        ArgumentCaptor<List<DeliveryRoute>> captor = ArgumentCaptor.forClass(List.class);
+        verify(deliveryRouteRepository).saveAll(captor.capture());
+        List<DeliveryRoute> savedRoutes = captor.getValue();
+
+        assertThat(savedRoutes).hasSize(2);
+        assertThat(savedRoutes.get(0).getOriginHubId()).isEqualTo(originHubId);
+        assertThat(savedRoutes.get(0).getDestHubId()).isEqualTo(waypointHubId);
+        assertThat(savedRoutes.get(0).getSequence()).isZero();
+        assertThat(savedRoutes.get(0).getHubDeliveryManagerId()).isEqualTo(hubManagerA);
+        assertThat(savedRoutes.get(1).getOriginHubId()).isEqualTo(waypointHubId);
+        assertThat(savedRoutes.get(1).getDestHubId()).isEqualTo(destHubId);
+        assertThat(savedRoutes.get(1).getSequence()).isEqualTo(1);
+    }
+
+    @Test
+    void createDelivery_sameOriginAndDestHub_skipsRouteLookup() {
+        UUID hubId = UUID.randomUUID();
+        DeliveryCreateRequestDto request = DeliveryCreateRequestDto.builder()
+                .orderId(UUID.randomUUID())
+                .originHubId(hubId)
+                .destHubId(hubId)
+                .deliveryAddress("부산시 사하구 낙동대로 1번길 1")
+                .recipientName("김말숙")
+                .recipientSlackId("U0123ABC")
+                .build();
+
+        when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(false);
+        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, hubId))
+                .thenReturn(List.of());
+        when(deliveryRepository.saveAndFlush(any(Delivery.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        deliveryService.createDelivery(request, UUID.randomUUID(), UserRole.MASTER, null);
+
+        verify(hubRouteClient, never()).findRoutePath(any(), any());
+        verify(deliveryRouteRepository).saveAll(List.of());
+    }
+
+    @Test
+    void createDelivery_hubRoutePathCallFails_throwsFeignClientError() {
+        UUID destHubId = UUID.randomUUID();
+        DeliveryCreateRequestDto request = createRequest(destHubId);
+
+        when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(false);
+        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, destHubId))
+                .thenReturn(List.of());
+        when(deliveryRepository.saveAndFlush(any(Delivery.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(hubRouteClient.findRoutePath(request.getOriginHubId(), destHubId))
+                .thenReturn(castToHubRoutePathResponse(ApiResponse.error(ErrorCode.FEIGN_CLIENT_ERROR)));
+
+        assertThatThrownBy(() -> deliveryService.createDelivery(request, UUID.randomUUID(), UserRole.MASTER, null))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.FEIGN_CLIENT_ERROR));
     }
 
     @Test
@@ -579,6 +682,29 @@ class DeliveryServiceTest {
         return DeliveryRoute.builder()
                 .Id(UUID.randomUUID()).delivery(delivery).sequence(sequence)
                 .originHubId(UUID.randomUUID()).destHubId(UUID.randomUUID())
+                .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private ApiResponse<HubRoutePathResponseDto> castToHubRoutePathResponse(ApiResponse<Void> response) {
+        return (ApiResponse<HubRoutePathResponseDto>) (ApiResponse<?>) response;
+    }
+
+    private void stubEmptyRoutePath(UUID originHubId, UUID destHubId) {
+        when(hubRouteClient.findRoutePath(originHubId, destHubId))
+                .thenReturn(ApiResponse.success(HubRoutePathResponseDto.builder()
+                        .departureHubId(originHubId)
+                        .arrivalHubId(destHubId)
+                        .routes(List.of(segment(originHubId, destHubId)))
+                        .build()));
+    }
+
+    private HubRouteSegmentResponseDto segment(UUID originHubId, UUID destHubId) {
+        return HubRouteSegmentResponseDto.builder()
+                .departureHubId(originHubId)
+                .arrivalHubId(destHubId)
+                .durationMinutes(30)
+                .distanceKm(BigDecimal.TEN)
                 .build();
     }
 

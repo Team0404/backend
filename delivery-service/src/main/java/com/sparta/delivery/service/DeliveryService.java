@@ -10,9 +10,12 @@ import com.sparta.common.security.UserPrincipal;
 import com.sparta.common.util.PageableUtil;
 import com.sparta.delivery.client.AiClient;
 import com.sparta.delivery.client.HubClient;
+import com.sparta.delivery.client.HubRouteClient;
 import com.sparta.delivery.client.OrderClient;
 import com.sparta.delivery.client.UserClient;
 import com.sparta.delivery.client.dto.AiCancelRequest;
+import com.sparta.delivery.client.dto.HubRoutePathResponseDto;
+import com.sparta.delivery.client.dto.HubRouteSegmentResponseDto;
 import com.sparta.delivery.domain.event.DeliveryCreatedEvent;
 import com.sparta.delivery.domain.dto.request.DeliveryCancelRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryCreateRequestDto;
@@ -55,6 +58,7 @@ public class DeliveryService {
     private final UserClient userClient;
     private final OrderClient orderClient;
     private final HubClient hubClient;
+    private final HubRouteClient hubRouteClient;
     private final AiClient aiClient;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -64,8 +68,6 @@ public class DeliveryService {
     private boolean isAllowedInternalCaller(String internalCaller) {
         return internalCaller != null && ALLOWED_INTERNAL_SERVICES.contains(internalCaller);
     }
-
-    // TODO: HubClient(허브 간 경로 조회), UserClient(허브소속/주문소유 확인) — @FeignClient interface 로 추가
 
     /**
      * D1. 배송 생성 (내부: 주문서비스 or MASTER).
@@ -99,26 +101,7 @@ public class DeliveryService {
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(DeliveryErrorCode.DELIVERY_ALREADY_EXISTS);
         }
-        // TODO: HubClient로 origin→dest 경로 조회 / 구간 수 만큼 DeliveryRoute 생성
-//        ApiResponse<List<HubRouteResponseDto>> routeOriginToDest = hubClient.getRouteOriginToDest();
-//        if(!routeOriginToDest.isSuccess()) {
-//            throw new BusinessException(ErrorCode.FEIGN_CLIENT_ERROR);
-//        }
-
-        List<DeliveryRoute> drList = new ArrayList<>();
-//        AtomicInteger routeSequence = new AtomicInteger();
-//        List<DeliveryRoute> drList = routeOriginToDest.getData().stream()
-//                .map(dto -> DeliveryRoute.builder()
-//                        .delivery(savedDelivery)
-//                        .sequence(routeSequence.getAndIncrement())
-//                        .originHubId(dto.getDeparture_hub_id())
-//                        .destHubId(dto.getArrival_hub_id())
-//                        .expectedDistanceKm(dto.getDistance_km())
-//                        .expectedDurationMin(dto.getDuration_minutes())
-//                        // TODO: N번 반복 호출 -> 개선 필요
-//                        .hubDeliveryManagerId(assignNextManager(DeliveryManagerType.HUB, dto.getDeparture_hub_id()))
-//                        .build())
-//                .toList();
+        List<DeliveryRoute> drList = buildDeliveryRoutes(savedDelivery, request.getOriginHubId(), request.getDestHubId());
         deliveryRouteRepository.saveAll(drList);
 
         publishDeliveryCreatedEvent(request, savedDelivery, drList);
@@ -462,6 +445,44 @@ public class DeliveryService {
             }
             case SUPPLIER_MANAGER -> throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
+    }
+
+    /**
+     * hub-service에서 origin→dest 경로(구간 목록)를 조회해 {@link DeliveryRoute} 를 생성한다.
+     * 구간마다 허브 배송담당자를 라운드로빈으로 배정한다.
+     *
+     * <p>origin과 dest가 같은 허브면(상품 창고 허브 = 업체 소속 허브) 경유할 구간이 없으므로
+     * 조회 자체를 생략하고 빈 목록을 반환한다.
+     */
+    private List<DeliveryRoute> buildDeliveryRoutes(Delivery delivery, UUID originHubId, UUID destHubId) {
+        if (originHubId.equals(destHubId)) {
+            return List.of();
+        }
+
+        ApiResponse<HubRoutePathResponseDto> response = hubRouteClient.findRoutePath(originHubId, destHubId);
+        if (response == null || !response.isSuccess() || response.getData() == null) {
+            throw new BusinessException(ErrorCode.FEIGN_CLIENT_ERROR, "허브 간 경로 조회에 실패했습니다.");
+        }
+
+        List<HubRouteSegmentResponseDto> segments = response.getData().getRoutes();
+        if (segments == null || segments.isEmpty()) {
+            throw new BusinessException(ErrorCode.FEIGN_CLIENT_ERROR, "허브 간 경로를 찾을 수 없습니다.");
+        }
+
+        List<DeliveryRoute> routes = new ArrayList<>();
+        int sequence = 0;
+        for (HubRouteSegmentResponseDto segment : segments) {
+            routes.add(DeliveryRoute.builder()
+                    .delivery(delivery)
+                    .sequence(sequence++)
+                    .originHubId(segment.getDepartureHubId())
+                    .destHubId(segment.getArrivalHubId())
+                    .expectedDistanceKm(segment.getDistanceKm())
+                    .expectedDurationMin(segment.getDurationMinutes())
+                    .hubDeliveryManagerId(assignNextManager(DeliveryManagerType.HUB, segment.getDepartureHubId()))
+                    .build());
+        }
+        return routes;
     }
 
     /**
