@@ -1,6 +1,6 @@
 # 로컬 개발용 인프라 + 앱 컨테이너
 #
-#   docker compose up -d                  # 인프라(postgres/redis/zipkin)만 기동
+#   docker compose up -d                  # 인프라(postgres/서비스별 redis/zipkin)만 기동
 #   docker compose --profile apps up -d   # 인프라 + eureka + gateway 까지 기동
 #
 # 앱은 보통 로컬에서 ./gradlew :서비스:bootRun 으로 띄우고,
@@ -33,11 +33,29 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
+  # hub-service 캐시 전용 Redis
+  hub-redis:
     image: redis:7-alpine
-    container_name: sparta-redis
+    container_name: sparta-hub-redis
     ports:
-      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${HUB_REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # company-service 캐시 전용 Redis
+  company-redis:
+    image: redis:7-alpine
+    container_name: sparta-company-redis
+    ports:
+      - "127.0.0.1:${COMPANY_REDIS_PORT:-6381}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # user-service Refresh Token 전용 Redis
   user-redis:
