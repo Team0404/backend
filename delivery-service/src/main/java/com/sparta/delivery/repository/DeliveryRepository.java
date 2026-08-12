@@ -31,7 +31,8 @@ public interface DeliveryRepository extends JpaRepository<Delivery, UUID> {
               AND (:destHubId IS NULL OR d.destHubId = :destHubId)
               AND (:recipientName IS NULL OR d.recipientName LIKE CONCAT('%', :recipientName, '%'))
               AND (:scopeHubId IS NULL OR d.originHubId = :scopeHubId OR d.destHubId = :scopeHubId)
-              AND (:scopeManagerId IS NULL OR d.companyDeliveryManagerId = :scopeManagerId OR d.deliveryId IN :scopeRouteDeliveryIds)
+              AND (:scopeManagerId IS NULL OR d.companyDeliveryManagerId = :scopeManagerId
+                   OR (:scopeRouteDeliveryIds IS NOT EMPTY AND d.deliveryId IN :scopeRouteDeliveryIds))
             """)
     Page<Delivery> search(
             @Param("status") DeliveryStatusEnum status,
