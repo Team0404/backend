@@ -28,6 +28,7 @@ import com.sparta.delivery.repository.DeliveryManagerCursorRepository;
 import com.sparta.delivery.repository.DeliveryManagerRepository;
 import com.sparta.delivery.repository.DeliveryRepository;
 import com.sparta.delivery.repository.DeliveryRouteRepository;
+import com.sparta.delivery.repository.query.DeliverySearchCriteria;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -201,9 +202,10 @@ public class DeliveryService {
             case SUPPLIER_MANAGER -> throw new UnsupportedOperationException("TODO: OrderClient 본인 주문 목록 조회 API 필요");
         }
 
-        Page<Delivery> page = deliveryRepository.search(
-                statusEnum, destHubId, recipientName, scopeHubId, scopeManagerId, scopeRouteDeliveryIds, normalized
+        DeliverySearchCriteria criteria = new DeliverySearchCriteria(
+                statusEnum, destHubId, recipientName, scopeHubId, scopeManagerId, scopeRouteDeliveryIds
         );
+        Page<Delivery> page = deliveryRepository.search(criteria, normalized);
 
         return ApiResponse.success(PageResponse.from(page.map(d -> DeliverySummaryResponseDto.builder()
                 .deliveryId(d.getDeliveryId())
