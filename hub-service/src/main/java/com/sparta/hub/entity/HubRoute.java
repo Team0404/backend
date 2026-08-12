@@ -47,8 +47,13 @@ public class HubRoute extends BaseEntity {
     }
 
     public void updateRoute(Integer durationMinutes, BigDecimal distanceKm){
-        this.durationMinutes = durationMinutes;
-        this.distanceKm = distanceKm;
+        if (durationMinutes != null) {
+            this.durationMinutes = durationMinutes;
+        }
+
+        if (distanceKm != null) {
+            this.distanceKm = distanceKm;
+        }
     }
 
 

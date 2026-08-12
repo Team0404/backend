@@ -1,5 +1,6 @@
 package com.sparta.hub.dto.request;
 
+import com.sparta.hub.entity.enums.HubType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.Column;
 import jakarta.validation.constraints.NotBlank;
@@ -26,6 +27,9 @@ public class HubCreateRequest {
     @Schema(description = "허브 경도", example = "127.1233000")
     @NotNull(message = "경도는 필수입니다.")
     private BigDecimal longitude;
+
+    @NotNull(message = "허브 종류는 필수입니다.")
+    private HubType hubType;
 
 
 }
