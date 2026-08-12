@@ -23,13 +23,12 @@ import java.util.Map;
 /**
  * Gemini(Spring AI) 호출 담당. {@link #generateDispatchDeadline} 의 반환값이
  * DB 적재/슬랙 발송의 입력이 되므로, 이 클래스는 순수하게 "프롬프트 → 구조화 응답" 변환만 한다.
- * 호출 결과를 {@code AiMessage} 에 반영하는 것은 {@link com.sparta.slack.ai.service.AiMessageWriter} 의 몫이다.
  *
- * <p><b>재시도 1단계(즉시 재시도).</b> {@link TransientAiException}(429/5xx 등 Gemini 쪽 일시 오류)과
+ * <p>재시도 1단계(즉시 재시도). {@link TransientAiException}(429/5xx 등 Gemini 쪽 일시 오류)과
  * 네트워크 연결 실패만 지수 백오프로 3회까지 즉시 재시도한다. 인증 실패·잘못된 요청처럼 재시도해도
  * 결과가 같은 오류는 재시도 대상에서 제외하고 즉시 {@link MessageErrorCode#AI_CALL_FAILED} 로 변환한다.
  *
- * <p>여기서 소진된 재시도는 <b>DB의 retry_count 에 기록하지 않는다.</b>
+ * <p>여기서 소진된 재시도는 DB의 retry_count 에 기록하지 않는다.
  * retry_count 는 A4(재생성 API) 호출 횟수만 세는 2단계 재시도용 카운터다.
  */
 @Slf4j
@@ -71,7 +70,7 @@ public class GeminiClient {
                     ResourceAccessException.class
             },
             maxAttempts = 3,
-            backoff = @Backoff(delay = 1000, multiplier = 2)
+            backoff = @Backoff(delay = 3000, multiplier = 2)
     )
     public DispatchDeadlineAiResult generateDispatchDeadline(String requestPrompt) {
         try {
@@ -86,7 +85,7 @@ public class GeminiClient {
 
             return result;
         } catch (TransientAiException | ResourceAccessException e) {
-            // @Retryable 이 처리하도록 그대로 전파한다.
+            // @Retryable 이 처리하도록 그대로 전파
             throw e;
         } catch (BusinessException e) {
             throw e;
