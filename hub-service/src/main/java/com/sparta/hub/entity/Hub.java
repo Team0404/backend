@@ -2,6 +2,8 @@ package com.sparta.hub.entity;
 
 import com.sparta.common.entity.BaseEntity;
 import com.sparta.hub.dto.request.HubUpdateRequest;
+import com.sparta.hub.entity.enums.HubStatus;
+import com.sparta.hub.entity.enums.HubType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -30,12 +32,23 @@ public class Hub extends BaseEntity {
     @Column(name = "longitude", nullable = false ,precision = 10,scale = 7)
     private BigDecimal longitude;   // 경도
 
-    public Hub( String name, String address, BigDecimal latitude, BigDecimal longitude) {
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private HubStatus status = HubStatus.ACTIVE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "hub_type", nullable = false)
+    private HubType hubType;
+
+    public Hub( String name, String address, BigDecimal latitude, BigDecimal longitude,
+                HubType hubType) {
 
         this.name = name;
         this.address = address;
         this.latitude = latitude;
         this.longitude = longitude;
+        this.hubType = hubType;
+        this.status = HubStatus.ACTIVE;
     }
 
     public void update(HubUpdateRequest request) {
@@ -46,4 +59,14 @@ public class Hub extends BaseEntity {
     }
 
 
+    // 신규 배송 차단
+    public void softDeactivation() {
+        this.status = HubStatus.DEACTIVATING;
+    }
+    // 기존 배송 완료 후 최종 삭제
+    @Override
+    public void softDelete(UUID deletedBy) {
+        this.status = HubStatus.INACTIVE;
+        super.softDelete(deletedBy);
+    }
 }

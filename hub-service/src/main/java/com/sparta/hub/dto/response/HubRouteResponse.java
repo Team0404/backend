@@ -2,11 +2,13 @@ package com.sparta.hub.dto.response;
 
 import com.sparta.hub.entity.HubRoute;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
 @Getter
+@NoArgsConstructor
 public class HubRouteResponse {
     // 허브 라우트 ID
     private UUID routeId;

@@ -1,12 +1,14 @@
 package com.sparta.hub.dto.response;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
 @Getter
+@NoArgsConstructor
 public class HubRoutePathResponse {
 
     // 출발 허브, 허브 이름

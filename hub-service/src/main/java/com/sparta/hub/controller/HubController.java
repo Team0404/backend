@@ -1,10 +1,11 @@
 package com.sparta.hub.controller;
 
 import com.sparta.common.response.ApiResponse;
+import com.sparta.common.security.CurrentUser;
+import com.sparta.common.security.UserPrincipal;
 import com.sparta.hub.dto.request.HubCreateRequest;
 import com.sparta.hub.dto.request.HubUpdateRequest;
 import com.sparta.hub.dto.response.HubResponse;
-import com.sparta.hub.repository.HubRepository;
 import com.sparta.hub.service.HubService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -13,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,7 +29,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class HubController {
     private final HubService hubService;
-    private final HubRepository hubRepository;
 
     // 전체 허브 조회
     @Operation(summary = "허브 전체 조회",
@@ -81,12 +82,14 @@ public class HubController {
             )
     })
     @PostMapping
-    public ResponseEntity<ApiResponse<HubResponse>> createHub(@Valid @RequestBody HubCreateRequest request) {
-        hubService.createHub(request);
+    @PreAuthorize("hasRole('MASTER')")
+    public ResponseEntity<ApiResponse<HubResponse>> createHub(
+            @Valid @RequestBody HubCreateRequest request) {
+       HubResponse response = hubService.createHub(request);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(
-                        ApiResponse.success("허브 생성 완료", null));
+                        ApiResponse.success("허브 생성 완료", response));
 
     }
 
@@ -105,8 +108,10 @@ public class HubController {
             )
     })
     @PatchMapping("/{hubId}")
+    @PreAuthorize("hasRole('MASTER')")
     public ApiResponse<Void> updateHub(@PathVariable UUID hubId,
-                                                       @Valid @RequestBody HubUpdateRequest request) {
+                                       @Valid @RequestBody HubUpdateRequest request) {
+
         hubService.updateHub(hubId, request);
 
         return ApiResponse.success("허브 수정 완료", null);
@@ -127,11 +132,27 @@ public class HubController {
             )
     })
     @DeleteMapping("/{hubId}")
-    public ApiResponse<Void> deleteHub(@PathVariable UUID hubId) {
-        hubService.deleteHub(hubId);
+    @PreAuthorize("hasRole('MASTER')")
+    public ApiResponse<Void> requestDeactivation(@PathVariable UUID hubId,
+                                                 @CurrentUser UserPrincipal userPrincipal) {
+        hubService.requestDeactivation(hubId);
 
-        return ApiResponse.success("허브 삭제 완료", null);
+        return ApiResponse.success("허브가 비활성화 대기 상태로 변경되었습니다.", null);
 
+    }
+
+    @PatchMapping("/{hubId}/deactivation/complete")
+    @PreAuthorize("hasRole('MASTER')")
+    public ApiResponse<Void> completeDeactivation(
+            @PathVariable UUID hubId,
+            @CurrentUser UserPrincipal principal
+    ) {
+        hubService.completeDeactivation(
+                hubId,
+                principal.getUserId()
+        );
+
+        return ApiResponse.success("허브 최종 삭제 완료", null);
     }
 
 
