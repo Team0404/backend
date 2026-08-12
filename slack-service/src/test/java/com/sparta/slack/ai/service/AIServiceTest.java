@@ -62,7 +62,7 @@ class AIServiceTest {
     void dispatchDeadline_deniedForNonMasterNonInternal() {
         AiDispatchDeadlineRequestDto request = createDispatchRequest();
 
-        assertThatThrownBy(() -> aiService.dispatchDeadline(request, UUID.randomUUID(), UserRole.SUPPLIER_MANAGER, null))
+        assertThatThrownBy(() -> aiService.dispatchDeadline(request, UserRole.SUPPLIER_MANAGER, null))
                 .isInstanceOfSatisfying(BusinessException.class,
                         e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ACCESS_DENIED));
     }
@@ -86,7 +86,7 @@ class AIServiceTest {
                 .build());
 
         ApiResponse<AiDispatchDeadlineResponseDto> response =
-                aiService.dispatchDeadline(request, UUID.randomUUID(), UserRole.MASTER, null);
+                aiService.dispatchDeadline(request, UserRole.MASTER, null);
 
         assertThat(response.getData().getStatus()).isEqualTo(AiCallStatus.SUCCESS);
         verify(slackSender).send(any(SlackSendCommand.class));
@@ -105,7 +105,7 @@ class AIServiceTest {
         when(aiMessageWriter.markFailed(eq(pending.getAiMessageId()), anyString())).thenReturn(failed);
 
         ApiResponse<AiDispatchDeadlineResponseDto> response =
-                aiService.dispatchDeadline(request, UUID.randomUUID(), UserRole.MASTER, null);
+                aiService.dispatchDeadline(request, UserRole.MASTER, null);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getStatus()).isEqualTo(AiCallStatus.FAILED);
@@ -124,7 +124,7 @@ class AIServiceTest {
         when(aiMessageWriter.markFailed(eq(pending.getAiMessageId()), anyString())).thenReturn(failedAiMessage());
 
         ApiResponse<AiDispatchDeadlineResponseDto> response =
-                aiService.dispatchDeadline(request, UUID.randomUUID(), UserRole.SUPPLIER_MANAGER, "delivery-service");
+                aiService.dispatchDeadline(request, UserRole.SUPPLIER_MANAGER, "delivery-service");
 
         assertThat(response.isSuccess()).isTrue();
     }
@@ -137,7 +137,7 @@ class AIServiceTest {
         when(aiMessageWriter.increaseRetry(aiMessageId))
                 .thenThrow(new BusinessException(MessageErrorCode.AI_MESSAGE_ALREADY_SUCCEEDED));
 
-        assertThatThrownBy(() -> aiService.retryAiMessage(aiMessageId, null, UUID.randomUUID(), UserRole.MASTER, null))
+        assertThatThrownBy(() -> aiService.retryAiMessage(aiMessageId, null, UserRole.MASTER, null))
                 .isInstanceOfSatisfying(BusinessException.class,
                         e -> assertThat(e.getErrorCode()).isEqualTo(MessageErrorCode.AI_MESSAGE_ALREADY_SUCCEEDED));
         verify(geminiClient, never()).generateDispatchDeadline(anyString());
@@ -160,7 +160,7 @@ class AIServiceTest {
                 .build());
 
         AiMessageRetryResponseDto response =
-                aiService.retryAiMessage(aiMessageId, null, UUID.randomUUID(), UserRole.MASTER, null);
+                aiService.retryAiMessage(aiMessageId, null, UserRole.MASTER, null);
 
         assertThat(response.getStatus()).isEqualTo(AiCallStatus.SUCCESS);
         verify(slackSender).send(any(SlackSendCommand.class));
@@ -179,7 +179,7 @@ class AIServiceTest {
         when(geminiClient.getModelName()).thenReturn("gemini-flash-latest");
         when(aiMessageWriter.markSuccess(eq(aiMessageId), anyString(), any(), anyString())).thenReturn(succeeded);
 
-        aiService.retryAiMessage(aiMessageId, request, UUID.randomUUID(), UserRole.MASTER, null);
+        aiService.retryAiMessage(aiMessageId, request, UserRole.MASTER, null);
 
         verify(slackSender, never()).send(any());
     }
@@ -197,7 +197,7 @@ class AIServiceTest {
         when(aiMessageRepository.findByAiMessageIdAndDeletedAtIsNull(aiMessageId)).thenReturn(Optional.of(existing));
 
         AiMessageUpdateResponseDto response =
-                aiService.updateAiMessage(aiMessageId, request, UUID.randomUUID(), UserRole.MASTER);
+                aiService.updateAiMessage(aiMessageId, request, UserRole.MASTER);
 
         // status/finalDispatchDeadline 을 요청에 넣지 않았으므로, 응답은 기존 엔티티 값(SUCCESS)을 그대로 반영해야 한다.
         assertThat(response.getStatus()).isEqualTo(AiCallStatus.SUCCESS);
@@ -211,7 +211,7 @@ class AIServiceTest {
         when(aiMessageRepository.findByOrderIdAndDeletedAtIsNull(request.getOrderId())).thenReturn(Optional.empty());
 
         ApiResponse<AiCancelResponseDto> response =
-                aiService.cancelDispatchDeadline(request, UUID.randomUUID(), UserRole.MASTER, null);
+                aiService.cancelDispatchDeadline(request, UserRole.MASTER, null);
 
         assertThat(response.isSuccess()).isTrue();
         verify(aiMessageWriter, never()).cancel(any());
@@ -228,7 +228,7 @@ class AIServiceTest {
         when(aiMessageWriter.cancel(pending.getAiMessageId())).thenReturn(cancelled);
 
         ApiResponse<AiCancelResponseDto> response =
-                aiService.cancelDispatchDeadline(request, UUID.randomUUID(), UserRole.MASTER, null);
+                aiService.cancelDispatchDeadline(request, UserRole.MASTER, null);
 
         assertThat(response.getData().getStatus()).isEqualTo(AiCallStatus.CANCELLED);
         verify(slackSender, never()).send(any());
@@ -246,7 +246,7 @@ class AIServiceTest {
                 .build());
 
         ApiResponse<AiCancelResponseDto> response =
-                aiService.cancelDispatchDeadline(request, UUID.randomUUID(), UserRole.MASTER, null);
+                aiService.cancelDispatchDeadline(request, UserRole.MASTER, null);
 
         assertThat(response.getData().getStatus()).isEqualTo(AiCallStatus.SUCCESS);
         verify(aiMessageWriter, never()).cancel(any());

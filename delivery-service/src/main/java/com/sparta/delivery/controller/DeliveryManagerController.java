@@ -1,7 +1,6 @@
 package com.sparta.delivery.controller;
 
 import com.sparta.common.response.ApiResponse;
-import com.sparta.common.security.CurrentUser;
 import com.sparta.common.security.UserPrincipal;
 import com.sparta.delivery.domain.dto.request.DeliveryManagerCreateRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryManagerUpdateRequestDto;
@@ -15,6 +14,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -35,27 +36,30 @@ public class DeliveryManagerController {
     private final DeliveryManagerService deliveryManagerService;
 
     // DM1. 배송 담당자 생성 (MASTER / 담당 허브 HUB_MANAGER)
+    @PreAuthorize("hasAnyRole('MASTER', 'HUB_MANAGER')")
     @PostMapping
     public ResponseEntity<ApiResponse<DeliveryManagerResponseDto>> createDeliveryManager(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @RequestBody @Valid DeliveryManagerCreateRequestDto request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED).body(deliveryManagerService.createDeliveryManager(request, authUser.getUserId(), authUser.getRole()));
     }
 
     // DM2. 배송 담당자 단건 조회 (MASTER / 담당 허브 HUB_MANAGER / 본인)
+    @PreAuthorize("hasAnyRole('MASTER', 'HUB_MANAGER', 'DELIVERY_MANAGER')")
     @GetMapping("/{userId}")
     public ApiResponse<DeliveryManagerResponseDto> findDeliveryManager(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @PathVariable("userId") UUID targetUserId
     ) {
         return deliveryManagerService.findDeliveryManager(targetUserId, authUser.getUserId(), authUser.getRole());
     }
 
     // DM3. 배송 담당자 목록/검색 (권한 범위는 서버에서 자동 필터링)
+    @PreAuthorize("hasAnyRole('MASTER', 'HUB_MANAGER', 'DELIVERY_MANAGER')")
     @GetMapping
     public ApiResponse<DeliveryManagerSearchResponseDto> searchDeliveryManagers(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @RequestParam(required = false) DeliveryManagerType type,
             @RequestParam(required = false) UUID hubId,
             @PageableDefault(size = 10) Pageable pageable
@@ -64,9 +68,10 @@ public class DeliveryManagerController {
     }
 
     // DM4. 배송 담당자 수정 (MASTER / 담당 허브 HUB_MANAGER)
+    @PreAuthorize("hasAnyRole('MASTER', 'HUB_MANAGER')")
     @PatchMapping("/{userId}")
     public ApiResponse<DeliveryManagerResponseDto> updateDeliveryManager(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @PathVariable("userId") UUID targetUserId,
             @RequestBody DeliveryManagerUpdateRequestDto request
     ) {
@@ -74,9 +79,10 @@ public class DeliveryManagerController {
     }
 
     // DM5. 배송 담당자 삭제 (MASTER / 담당 허브 HUB_MANAGER, Soft Delete)
+    @PreAuthorize("hasAnyRole('MASTER', 'HUB_MANAGER')")
     @DeleteMapping("/{userId}")
     public ApiResponse<Void> deleteDeliveryManager(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @PathVariable("userId") UUID targetUserId
     ) {
         return deliveryManagerService.deleteDeliveryManager(targetUserId, authUser.getUserId(), authUser.getRole());

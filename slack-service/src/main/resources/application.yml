@@ -29,7 +29,7 @@ spring:
     #    버전 고정 대신 별칭(-latest)을 기본값으로 두어 중단에 덜 취약하게 한다.
     google:
       genai:
-        api-key: ${GEMINI_API_KEY:}
+        api-key: ${GEMINI_API_KEY:your-api-key}
         chat:
           options:
             model: ${GEMINI_MODEL:gemini-flash-latest}

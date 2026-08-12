@@ -70,7 +70,6 @@ public class AIService {
      */
     public ApiResponse<AiDispatchDeadlineResponseDto> dispatchDeadline(
             AiDispatchDeadlineRequestDto request,
-            UUID userId,
             UserRole role,
             String internalCaller
     ) {
@@ -122,7 +121,6 @@ public class AIService {
             UUID orderId,
             String model,
             Pageable pageable,
-            UUID userId,
             UserRole role
     ) {
         authorize(role);
@@ -140,7 +138,7 @@ public class AIService {
      * A3. AI 메시지 단건 조회 (MASTER).
      */
     @Transactional(readOnly = true)
-    public AiMessageFindResponseDto findAiMessage(UUID aiMessageId, UUID userId, UserRole role) {
+    public AiMessageFindResponseDto findAiMessage(UUID aiMessageId, UserRole role) {
         authorize(role);
         AiMessage aiMessage = getAiMessage(aiMessageId);
 
@@ -170,7 +168,6 @@ public class AIService {
     public AiMessageRetryResponseDto retryAiMessage(
             UUID aiMessageId,
             AiMessageRetryRequestDto request,
-            UUID userId,
             UserRole role,
             String internalCaller
     ) {
@@ -211,7 +208,6 @@ public class AIService {
     public AiMessageUpdateResponseDto updateAiMessage(
             UUID aiMessageId,
             AiMessageUpdateRequestDto request,
-            UUID userId,
             UserRole role
     ) {
         authorize(role);
@@ -258,7 +254,6 @@ public class AIService {
      */
     public ApiResponse<AiCancelResponseDto> cancelDispatchDeadline(
             AiCancelRequestDto request,
-            UUID userId,
             UserRole role,
             String internalCaller
     ) {
