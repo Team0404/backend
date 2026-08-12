@@ -1,9 +1,12 @@
 package com.sparta.order.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sparta.common.config.SecurityConfig;
+import com.sparta.common.config.WebConfig;
 import com.sparta.common.constant.AuthHeaders;
 import com.sparta.common.entity.UserRole;
 import com.sparta.common.response.PageResponse;
+import com.sparta.common.security.UserPrincipal;
 import com.sparta.order.dto.request.CreateOrderRequest;
 import com.sparta.order.dto.request.UpdateOrderRequest;
 import com.sparta.order.dto.request.UpdateOrderStatusRequest;
@@ -19,8 +22,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -38,7 +45,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(OrderController.class)
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
+@Import({SecurityConfig.class, WebConfig.class})
 class OrderControllerTest {
 
     private static final String BASE_URL = "/api/v1/orders";
@@ -51,6 +59,11 @@ class OrderControllerTest {
 
     @MockBean
     private OrderService orderService;
+
+    @org.junit.jupiter.api.AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     @DisplayName("주문 생성 API는 201과 주문 응답을 반환한다")
@@ -70,11 +83,13 @@ class OrderControllerTest {
         OrderResponse response = sampleOrderResponse(UUID.randomUUID(), companyId, hubId);
         given(orderService.createOrder(any(CreateOrderRequest.class), any(OrderServiceContext.class)))
                 .willReturn(response);
+        SecurityContextHolder.getContext().setAuthentication(userAuthentication(userId, "supplier", UserRole.SUPPLIER_MANAGER));
 
         mockMvc.perform(post(BASE_URL)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header(AuthHeaders.USER_ID, userId)
-                        .header(AuthHeaders.USER_ROLE, UserRole.SUPPLIER_MANAGER.name())
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(AuthHeaders.USER_ID, userId)
+                .header(AuthHeaders.USERNAME, "supplier")
+                .header(AuthHeaders.USER_ROLE, UserRole.SUPPLIER_MANAGER.name())
                         .header(AuthHeaders.HUB_ID, hubId)
                         .header(AuthHeaders.COMPANY_ID, companyId)
                         .header(AuthHeaders.DELIVERY_MANAGER_ID, deliveryManagerId)
@@ -112,9 +127,11 @@ class OrderControllerTest {
 
         given(orderService.getOrders(any(), any(Pageable.class), any(OrderServiceContext.class)))
                 .willReturn(pageResponse);
+        SecurityContextHolder.getContext().setAuthentication(userAuthentication(userId, "master", UserRole.MASTER));
 
         mockMvc.perform(get(BASE_URL)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "master")
                         .header(AuthHeaders.USER_ROLE, UserRole.MASTER.name())
                         .param("companyId", companyId.toString())
                         .param("status", OrderStatus.READY.name())
@@ -139,9 +156,11 @@ class OrderControllerTest {
 
         given(orderService.getOrder(eq(orderId), any(OrderServiceContext.class)))
                 .willReturn(sampleOrderResponse(orderId, companyId, hubId));
+        SecurityContextHolder.getContext().setAuthentication(userAuthentication(userId, "hub-manager", UserRole.HUB_MANAGER));
 
         mockMvc.perform(get(BASE_URL + "/{orderId}", orderId)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "hub-manager")
                         .header(AuthHeaders.USER_ROLE, UserRole.HUB_MANAGER.name())
                         .header(AuthHeaders.HUB_ID, hubId))
                 .andExpect(status().isOk())
@@ -165,10 +184,12 @@ class OrderControllerTest {
 
         given(orderService.updateOrder(eq(orderId), any(UpdateOrderRequest.class), any(OrderServiceContext.class)))
                 .willReturn(sampleOrderResponse(orderId, companyId, hubId));
+        SecurityContextHolder.getContext().setAuthentication(userAuthentication(userId, "supplier", UserRole.SUPPLIER_MANAGER));
 
         mockMvc.perform(patch(BASE_URL + "/{orderId}", orderId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "supplier")
                         .header(AuthHeaders.USER_ROLE, UserRole.SUPPLIER_MANAGER.name())
                         .header(AuthHeaders.COMPANY_ID, companyId)
                         .content(objectMapper.writeValueAsString(request)))
@@ -189,10 +210,12 @@ class OrderControllerTest {
 
         given(orderService.updateOrderStatus(eq(orderId), any(UpdateOrderStatusRequest.class), any(OrderServiceContext.class)))
                 .willReturn(sampleOrderResponse(orderId, companyId, hubId));
+        SecurityContextHolder.getContext().setAuthentication(userAuthentication(userId, "hub-manager", UserRole.HUB_MANAGER));
 
         mockMvc.perform(patch(BASE_URL + "/{orderId}/status", orderId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "hub-manager")
                         .header(AuthHeaders.USER_ROLE, UserRole.HUB_MANAGER.name())
                         .header(AuthHeaders.HUB_ID, hubId)
                         .content(objectMapper.writeValueAsString(request)))
@@ -211,9 +234,11 @@ class OrderControllerTest {
 
         given(orderService.cancelOrder(eq(orderId), any(OrderServiceContext.class)))
                 .willReturn(sampleOrderResponse(orderId, companyId, hubId));
+        SecurityContextHolder.getContext().setAuthentication(userAuthentication(userId, "supplier", UserRole.SUPPLIER_MANAGER));
 
         mockMvc.perform(patch(BASE_URL + "/{orderId}/cancel", orderId)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "supplier")
                         .header(AuthHeaders.USER_ROLE, UserRole.SUPPLIER_MANAGER.name())
                         .header(AuthHeaders.COMPANY_ID, companyId))
                 .andExpect(status().isOk())
@@ -229,14 +254,39 @@ class OrderControllerTest {
         UUID hubId = UUID.randomUUID();
 
         doNothing().when(orderService).deleteOrder(eq(orderId), any(OrderServiceContext.class));
+        SecurityContextHolder.getContext().setAuthentication(userAuthentication(userId, "hub-manager", UserRole.HUB_MANAGER));
 
         mockMvc.perform(delete(BASE_URL + "/{orderId}", orderId)
                         .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "hub-manager")
                         .header(AuthHeaders.USER_ROLE, UserRole.HUB_MANAGER.name())
                         .header(AuthHeaders.HUB_ID, hubId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("주문 삭제가 완료되었습니다."));
+    }
+
+    @Test
+    @DisplayName("허용되지 않은 Role은 주문 생성 API를 호출할 수 없다")
+    void createOrderForbiddenRole() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID companyId = UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest(
+                companyId,
+                List.of(new CreateOrderRequest.OrderItemRequest(UUID.randomUUID(), 3)),
+                "문 앞에 놓아주세요",
+                LocalDateTime.now().plusDays(1)
+        );
+        SecurityContextHolder.getContext().setAuthentication(userAuthentication(userId, "delivery", UserRole.DELIVERY_MANAGER));
+
+        mockMvc.perform(post(BASE_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(AuthHeaders.USER_ID, userId)
+                        .header(AuthHeaders.USERNAME, "delivery")
+                        .header(AuthHeaders.USER_ROLE, UserRole.DELIVERY_MANAGER.name())
+                        .header(AuthHeaders.COMPANY_ID, companyId)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
     }
 
     private OrderResponse sampleOrderResponse(UUID orderId, UUID companyId, UUID hubId) {
@@ -256,6 +306,15 @@ class OrderControllerTest {
                 UUID.randomUUID(),
                 LocalDateTime.of(2026, 8, 5, 10, 0),
                 UUID.randomUUID()
+        );
+    }
+
+    private UsernamePasswordAuthenticationToken userAuthentication(UUID userId, String username, UserRole role) {
+        UserPrincipal principal = new UserPrincipal(userId, username, role);
+        return new UsernamePasswordAuthenticationToken(
+                principal,
+                "N/A",
+                List.of(new SimpleGrantedAuthority("ROLE_" + role.name()))
         );
     }
 }
