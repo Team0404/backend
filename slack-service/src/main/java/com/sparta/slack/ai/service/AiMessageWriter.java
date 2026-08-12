@@ -15,14 +15,6 @@ import java.util.UUID;
 
 /**
  * AiMessage 이력의 영속화만 담당한다.
- *
- * <p>Gemini 호출(수백 ms~수십 초) 동안 DB 커넥션을 붙잡지 않기 위해, 호출 전 PENDING 저장과
- * 호출 후 결과 반영을 각각 <b>독립 트랜잭션</b>으로 끊는다. 같은 클래스 안에서 호출하면
- * self-invocation 으로 프록시를 타지 않아 {@code REQUIRES_NEW} 가 적용되지 않으므로,
- * {@link com.sparta.slack.slack.service.SlackMessageWriter} 와 동일하게 별도 빈으로 분리했다.
- *
- * <p>PENDING 저장을 먼저 커밋해 두는 이유: 호출 도중 서버가 죽어도 이력이 남아
- * A2(실패 목록)/A4(재생성) 대상으로 잡히도록 하기 위함이다.
  */
 @Component
 @RequiredArgsConstructor

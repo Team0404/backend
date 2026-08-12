@@ -85,7 +85,7 @@ public class GeminiClient {
 
             return result;
         } catch (TransientAiException | ResourceAccessException e) {
-            // @Retryable 이 처리하도록 그대로 전파한다.
+            // @Retryable 이 처리하도록 그대로 전파
             throw e;
         } catch (BusinessException e) {
             throw e;

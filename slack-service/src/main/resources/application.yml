@@ -35,10 +35,8 @@ spring:
           options:
             model: ${GEMINI_MODEL:gemini-flash-latest}
             temperature: 0.2
-    # 프레임워크 자체 재시도를 끈다. 즉시 재시도는 GeminiClient의 @Retryable이 전담하며,
-    # 이중으로 겹치면 한 번의 A1 호출로 최대 시도 횟수가 배로 불어난다.
     retry:
-      max-attempts: 1
+      max-attempts: 0
 
 # 슬랙 메시지 발송 (Incoming Webhook 또는 Bot Token)
 slack:

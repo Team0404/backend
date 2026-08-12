@@ -16,13 +16,6 @@ import org.springframework.web.client.RestClient;
 
 /**
  * 슬랙 Incoming Webhook 호출 담당.
- *
- * <p><b>재시도 1단계(즉시 재시도).</b> 네트워크 오류·5xx·429 같은 일시 오류만
- * 지수 백오프로 3회까지 즉시 재시도한다. 4xx(잘못된 payload, 폐기된 webhook 등)는
- * 재시도해도 결과가 같으므로 즉시 전파한다.
- *
- * <p>여기서 소진된 재시도는 <b>DB의 retry_count 에 기록하지 않는다.</b>
- * retry_count 는 M2(재발송 API) 호출 횟수만 세는 2단계 재시도용 카운터다.
  */
 @Slf4j
 @Component
