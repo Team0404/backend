@@ -36,7 +36,9 @@ spring:
             model: ${GEMINI_MODEL:gemini-flash-latest}
             temperature: 0.2
     retry:
-      max-attempts: 0
+      # 프레임워크 자체 재시도는 끈다(=1회만 시도). 즉시 재시도는 GeminiClient의 @Retryable이 전담한다.
+      # 0으로 두면 Spring Retry의 RetryTemplateBuilder가 "시도 횟수는 양수여야 한다"며 빈 생성 자체를 실패시킨다.
+      max-attempts: 1
 
 # 슬랙 메시지 발송 (Incoming Webhook 또는 Bot Token)
 slack:
