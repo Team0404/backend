@@ -3,7 +3,7 @@ package com.sparta.company.product.service;
 import com.sparta.common.entity.UserRole;
 import com.sparta.common.exception.BusinessException;
 import com.sparta.common.security.UserPrincipal;
-import com.sparta.company.client.user.UserClient;
+import com.sparta.company.client.user.UserQueryService;
 import com.sparta.company.company.entity.Company;
 import com.sparta.company.company.entity.CompanyType;
 import com.sparta.company.company.repository.CompanyRepository;
@@ -11,8 +11,10 @@ import com.sparta.company.product.dto.request.ProductCreateRequest;
 import com.sparta.company.product.dto.request.ProductUpdateRequest;
 import com.sparta.company.product.dto.response.ProductResponse;
 import com.sparta.company.product.entity.Product;
+import com.sparta.company.product.entity.ProductStockMovement;
 import com.sparta.company.product.repository.ProductQueryRepository;
 import com.sparta.company.product.repository.ProductRepository;
+import com.sparta.company.product.repository.ProductStockMovementRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,9 @@ import static org.mockito.Mockito.verify;
 
 /**
  * 상품(Product) CRUD + 재고(decrease/restore-stock) 서비스 계층 단위 테스트.
+ * 락(findByIdForUpdate)은 Mockito 단위 테스트로는 실제 동시성 검증이 안 되므로
+ * (실제 DB 행 잠금 동작 자체는 통합 테스트/수동 부하테스트가 필요),
+ * 여기서는 "락 조회 메서드가 호출되는지"와 "referenceId로 중복 요청이 걸러지는지"만 검증한다.
  */
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
@@ -43,9 +48,11 @@ class ProductServiceTest {
     @Mock
     private ProductQueryRepository productQueryRepository;
     @Mock
+    private ProductStockMovementRepository stockMovementRepository;
+    @Mock
     private CompanyRepository companyRepository;
     @Mock
-    private UserClient userClient;
+    private UserQueryService userQueryService;
 
     @InjectMocks
     private ProductService productService;
@@ -87,7 +94,7 @@ class ProductServiceTest {
 
         // then
         assertThat(response.name()).isEqualTo("마른오징어 가공품");
-        assertThat(response.hubId()).isEqualTo(hubId); // company.hubId와 동일해야 함
+        assertThat(response.hubId()).isEqualTo(hubId);
         assertThat(response.price()).isEqualTo(15000L);
         assertThat(response.stockQuantity()).isEqualTo(200L);
     }
@@ -129,7 +136,7 @@ class ProductServiceTest {
 
         // then
         assertThat(response.name()).isEqualTo("수정 후 상품명");
-        assertThat(response.price()).isEqualTo(1000L); // price는 null로 보냈으니 유지
+        assertThat(response.price()).isEqualTo(1000L);
     }
 
     @Test
@@ -154,8 +161,8 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("Order 서비스의 주문 생성 요청으로 재고가 정상 차감된다")
-    void decreaseStock_success() {
+    @DisplayName("referenceId 없이 재고 차감 요청하면 예전처럼 매번 그대로 반영된다 (하위 호환)")
+    void decreaseStock_success_withoutReferenceId() {
         // given
         Product product = Product.builder()
                 .name("마른오징어 가공품")
@@ -164,14 +171,59 @@ class ProductServiceTest {
                 .price(15000L)
                 .stockQuantity(100L)
                 .build();
-        given(productRepository.findByIdAndDeletedAtIsNull(productId))
+        given(productRepository.findByIdForUpdate(productId))
                 .willReturn(Optional.of(product));
 
         // when
-        productService.decreaseStock(productId, 30);
+        productService.decreaseStock(productId, 30, null);
 
         // then
         assertThat(product.getStockQuantity()).isEqualTo(70L);
+        verify(stockMovementRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("referenceId가 있으면 재고 차감 후 이력을 남긴다")
+    void decreaseStock_success_withReferenceId() {
+        // given
+        Product product = Product.builder()
+                .name("마른오징어 가공품")
+                .company(company)
+                .hubId(hubId)
+                .price(15000L)
+                .stockQuantity(100L)
+                .build();
+        String orderId = "order-123";
+
+        given(stockMovementRepository.existsByProductIdAndReferenceIdAndMovementType(
+                productId, orderId, ProductStockMovement.MovementType.DECREASE))
+                .willReturn(false);
+        given(productRepository.findByIdForUpdate(productId))
+                .willReturn(Optional.of(product));
+
+        // when
+        productService.decreaseStock(productId, 30, orderId);
+
+        // then
+        assertThat(product.getStockQuantity()).isEqualTo(70L);
+        verify(stockMovementRepository, times(1)).save(any(ProductStockMovement.class));
+    }
+
+    @Test
+    @DisplayName("같은 referenceId로 재고 차감 요청이 재시도돼도 재고가 두 번 깎이지 않는다 (멱등성)")
+    void decreaseStock_idempotent_sameReferenceIdSkipped() {
+        // given
+        String orderId = "order-123";
+        given(stockMovementRepository.existsByProductIdAndReferenceIdAndMovementType(
+                productId, orderId, ProductStockMovement.MovementType.DECREASE))
+                .willReturn(true); // 이미 처리된 요청
+
+        // when
+        productService.decreaseStock(productId, 30, orderId);
+
+        // then - 이미 처리된 요청이므로 락 조회/저장 자체가 일어나지 않아야 함
+        verify(productRepository, never()).findByIdForUpdate(any());
+        verify(stockMovementRepository, never()).save(any());
     }
 
     @Test
@@ -185,11 +237,11 @@ class ProductServiceTest {
                 .price(15000L)
                 .stockQuantity(10L)
                 .build();
-        given(productRepository.findByIdAndDeletedAtIsNull(productId))
+        given(productRepository.findByIdForUpdate(productId))
                 .willReturn(Optional.of(product));
 
         // when & then
-        assertThatThrownBy(() -> productService.decreaseStock(productId, 50))
+        assertThatThrownBy(() -> productService.decreaseStock(productId, 50, null))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -204,11 +256,11 @@ class ProductServiceTest {
                 .price(15000L)
                 .stockQuantity(70L)
                 .build();
-        given(productRepository.findByIdAndDeletedAtIsNull(productId))
+        given(productRepository.findByIdForUpdate(productId))
                 .willReturn(Optional.of(product));
 
         // when
-        productService.restoreStock(productId, 30);
+        productService.restoreStock(productId, 30, null);
 
         // then
         assertThat(product.getStockQuantity()).isEqualTo(100L);
@@ -217,9 +269,9 @@ class ProductServiceTest {
     @Test
     @DisplayName("재고 조정 수량이 0 이하이면 예외가 발생한다")
     void decreaseStock_fail_invalidQuantity() {
-        assertThatThrownBy(() -> productService.decreaseStock(productId, 0))
+        assertThatThrownBy(() -> productService.decreaseStock(productId, 0, null))
                 .isInstanceOf(BusinessException.class);
 
-        verify(productRepository, times(0)).findByIdAndDeletedAtIsNull(any());
+        verify(productRepository, times(0)).findByIdForUpdate(any());
     }
 }
