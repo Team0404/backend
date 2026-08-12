@@ -22,8 +22,6 @@ public class DeliveryCreateRequestDto {
     @NotNull
     @NotBlank
     private String recipientName;
-    @NotNull
-    @NotBlank
     private String recipientSlackId;
 
     /**
