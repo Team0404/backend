@@ -26,9 +26,26 @@ services:
       retries: 5
     restart: unless-stopped
 
-  redis:
+  # hub-service 캐시 전용 Redis
+  hub-redis:
     image: redis:7-alpine
-    container_name: sparta-redis
+    container_name: sparta-hub-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # company-service 캐시 전용 Redis
+  company-redis:
+    image: redis:7-alpine
+    container_name: sparta-company-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   # user-service Refresh Token 전용 Redis
@@ -108,14 +125,17 @@ services:
       DB_SCHEMA: public
       DDL_AUTO: validate
       SHOW_SQL: "false"
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      HUB_REDIS_HOST: hub-redis
+      HUB_REDIS_PORT: 6379
       EUREKA_URL: http://eureka:8761/eureka/
       ZIPKIN_URL: http://zipkin:9411/api/v2/spans
     depends_on:
-      - postgres
-      - redis
-      - eureka
+      postgres:
+        condition: service_healthy
+      hub-redis:
+        condition: service_healthy
+      eureka:
+        condition: service_started
     restart: unless-stopped
 
   company-service:
@@ -130,12 +150,19 @@ services:
       DB_SCHEMA: public
       DDL_AUTO: validate
       SHOW_SQL: "false"
+      COMPANY_REDIS_HOST: company-redis
+      COMPANY_REDIS_PORT: 6379
       EUREKA_URL: http://eureka:8761/eureka/
       ZIPKIN_URL: http://zipkin:9411/api/v2/spans
     depends_on:
-      - postgres
-      - eureka
-      - hub-service
+      postgres:
+        condition: service_healthy
+      company-redis:
+        condition: service_healthy
+      eureka:
+        condition: service_started
+      hub-service:
+        condition: service_started
     restart: unless-stopped
 
   delivery-service:

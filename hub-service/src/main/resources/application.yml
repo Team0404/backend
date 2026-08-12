@@ -26,10 +26,8 @@ spring:
   # Redis 캐싱 (허브 정보, 허브 간 이동정보)
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      username: ${REDIS_USERNAME:default}
-      password: ${REDIS_PASSWORD}
+      host: ${HUB_REDIS_HOST:localhost}
+      port: ${HUB_REDIS_PORT:6379}
   cache:
     type: redis
 
