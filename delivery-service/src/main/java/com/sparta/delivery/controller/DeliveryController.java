@@ -3,7 +3,6 @@ package com.sparta.delivery.controller;
 import com.sparta.common.constant.AuthHeaders;
 import com.sparta.common.response.ApiResponse;
 import com.sparta.common.response.PageResponse;
-import com.sparta.common.security.CurrentUser;
 import com.sparta.common.security.UserPrincipal;
 import com.sparta.delivery.domain.dto.request.DeliveryCancelRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryCreateRequestDto;
@@ -19,6 +18,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,8 +29,9 @@ import java.util.UUID;
  * 배송(D1~D7) API.
  *
  * 인증/인가는 Gateway가 JWT 검증 후 전달하는 헤더에 의존한다.
- * 컨트롤러는 {@code X-User-Id}(userId), {@code X-User-Role}(role)만 꺼내
- * 서비스로 넘기고, 실제 권한 범위 판단은 서비스가 수행한다.
+ *
+ * <p>주문 서비스가 {@code FeignClientInterceptor}로 {@code X-User-*} 헤더를 전파하므로
+ * 이 컨트롤러에서는 principal이 항상 존재한다.
  */
 @Tag(name = "Delivery", description = "배송 및 배송 경로 API")
 @RestController
@@ -45,7 +47,7 @@ public class DeliveryController {
     )
     @PostMapping("/deliveries")
     public ResponseEntity<ApiResponse<DeliveryCreateResponseDto>> createDelivery(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @RequestHeader(value = AuthHeaders.INTERNAL_CALL, required = false) String internalCaller,
             @RequestBody @Valid DeliveryCreateRequestDto request
     ) {
@@ -59,9 +61,10 @@ public class DeliveryController {
             summary = "배송 단건 조회",
             description = "허용 권한: MASTER(전체) / HUB_MANAGER(담당 허브) / DELIVERY_MANAGER(본인 담당) / SUPPLIER_MANAGER(본인 주문)"
     )
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/deliveries/{deliveryId}")
     public ApiResponse<DeliveryFindResponseDto> findDelivery(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @PathVariable UUID deliveryId
     ) {
         return deliveryService.findDelivery(deliveryId, authUser.getUserId(), authUser.getRole());
@@ -71,9 +74,10 @@ public class DeliveryController {
             summary = "배송 목록/검색",
             description = "status/destHubId/recipientName으로 필터링하며, 권한에 따라 조회 범위가 서버에서 자동으로 제한됩니다."
     )
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/deliveries")
     public ApiResponse<PageResponse<DeliverySummaryResponseDto>> searchDelivery(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) UUID destHubId,
             @RequestParam(required = false) String recipientName,
@@ -86,9 +90,10 @@ public class DeliveryController {
             summary = "배송 수정",
             description = "상태 전이, 주소/수령인, 업체 배송담당자 재배정 등을 수정합니다. 허용 권한: MASTER, 담당 허브 HUB_MANAGER, 해당 배송 DELIVERY_MANAGER"
     )
+    @PreAuthorize("hasAnyRole('MASTER', 'HUB_MANAGER', 'DELIVERY_MANAGER')")
     @PatchMapping("/deliveries/{deliveryId}")
     public ApiResponse<DeliveryUpdateResponseDto> updateDelivery(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @PathVariable UUID deliveryId,
             @RequestBody DeliveryUpdateRequestDto request
     ) {
@@ -103,7 +108,7 @@ public class DeliveryController {
     )
     @PatchMapping("/deliveries/cancel")
     public ApiResponse<DeliveryCancelResponseDto> cancelDelivery(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @RequestHeader(value = AuthHeaders.INTERNAL_CALL, required = false) String internalCaller,
             @RequestBody @Valid DeliveryCancelRequestDto request
     ) {
@@ -116,7 +121,7 @@ public class DeliveryController {
     )
     @DeleteMapping("/deliveries/{deliveryId}")
     public ApiResponse<Void> deleteDelivery(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @RequestHeader(value = AuthHeaders.INTERNAL_CALL, required = false) String internalCaller,
             @PathVariable UUID deliveryId
     ) {
@@ -127,9 +132,10 @@ public class DeliveryController {
             summary = "배송 경로 목록 조회",
             description = "배송 단건 조회(D2)와 동일한 권한 범위가 적용됩니다."
     )
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/deliveries/{deliveryId}/routes")
     public ApiResponse<List<DeliveryRouteSearchResponseDto>> findDeliveryRoutes(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @PathVariable UUID deliveryId
     ) {
         return deliveryService.findDeliveryRoutes(deliveryId, authUser.getUserId(), authUser.getRole());
@@ -139,9 +145,10 @@ public class DeliveryController {
             summary = "배송 경로 상태 수정",
             description = "실제 거리/소요시간 기록 및 허브 배송담당자 배정/변경을 포함합니다. 허용 권한: MASTER, 담당 허브 HUB_MANAGER, 해당 경로 DELIVERY_MANAGER(본인)"
     )
+    @PreAuthorize("hasAnyRole('MASTER', 'HUB_MANAGER', 'DELIVERY_MANAGER')")
     @PatchMapping("/delivery-routes/{deliveryRouteId}")
     public ApiResponse<DeliveryRouteUpdateResponseDto> updateDeliveryRoute(
-            @CurrentUser UserPrincipal authUser,
+            @AuthenticationPrincipal UserPrincipal authUser,
             @PathVariable UUID deliveryRouteId,
             @RequestBody DeliveryRouteUpdateRequestDto request
     ) {
