@@ -5,7 +5,6 @@ import com.sparta.common.security.CurrentUser;
 import com.sparta.common.security.UserPrincipal;
 import com.sparta.hub.dto.request.HubRouteCreateRequest;
 import com.sparta.hub.dto.request.HubRouteUpdateRequest;
-import com.sparta.hub.dto.response.HubResponse;
 import com.sparta.hub.dto.response.HubRoutePathResponse;
 import com.sparta.hub.dto.response.HubRouteResponse;
 import com.sparta.hub.service.HubRouteService;
@@ -17,9 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.validation.annotation.Validated;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -128,7 +126,7 @@ public class HubRouteController {
     @DeleteMapping("/{routeId}")
     @PreAuthorize("hasRole('MASTER')")
     public ApiResponse<Void> deleteHubRoute(@PathVariable UUID routeId,
-                                            @CurrentUser UserPrincipal principal){
+                                            @AuthenticationPrincipal UserPrincipal principal){
         hubRouteService.deleteHubRoute(routeId, principal.getUserId());
 
         return ApiResponse.success("허브 경로 삭제 완료", null);
