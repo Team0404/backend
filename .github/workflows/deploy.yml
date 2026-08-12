@@ -67,7 +67,7 @@ jobs:
             cd /home/ubuntu/app
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_ACTOR" --password-stdin
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
             docker image prune -f
         env:
           GHCR_ACTOR: ${{ github.actor }}
