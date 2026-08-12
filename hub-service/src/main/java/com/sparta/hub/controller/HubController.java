@@ -15,8 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -93,6 +93,7 @@ public class HubController {
 
     }
 
+    // 허브 수정
     @Operation(
             summary = "허브 수정",
             description = "허브의 이름, 주소, 위도 및 경도를 수정합니다."
@@ -117,6 +118,7 @@ public class HubController {
         return ApiResponse.success("허브 수정 완료", null);
     }
 
+    // 허브 INACTIVE
     @Operation(
             summary = "허브 삭제",
             description = "허브를 Soft Delete 처리합니다."
@@ -133,19 +135,19 @@ public class HubController {
     })
     @DeleteMapping("/{hubId}")
     @PreAuthorize("hasRole('MASTER')")
-    public ApiResponse<Void> requestDeactivation(@PathVariable UUID hubId,
-                                                 @CurrentUser UserPrincipal userPrincipal) {
+    public ApiResponse<Void> requestDeactivation(@PathVariable UUID hubId) {
         hubService.requestDeactivation(hubId);
 
         return ApiResponse.success("허브가 비활성화 대기 상태로 변경되었습니다.", null);
 
     }
 
+    // 허브 softDelete 최종 삭제
     @PatchMapping("/{hubId}/deactivation/complete")
     @PreAuthorize("hasRole('MASTER')")
     public ApiResponse<Void> completeDeactivation(
             @PathVariable UUID hubId,
-            @CurrentUser UserPrincipal principal
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
         hubService.completeDeactivation(
                 hubId,
