@@ -130,9 +130,10 @@ Spring Cloud MSA 기반 물류 관리 플랫폼
 ## 📄 API Documentation
 
 Gateway를 통해 전체 서비스의 Swagger 문서를 통합 조회할 수 있습니다.
+localhost로 된 부분은 개발 진행환경의 도메인으로 변경하시면 됩니다.
 
 ```
-http://localhost:8080/swagger-ui.html
+http://3.34.126.231:8080/swagger-ui.html
 ```
 
 ## 🚀 Quick Start
@@ -147,7 +148,7 @@ cd backend
 ### 2. Environment Variables
 
 `.env.example`을 복사해 `.env`를 만들고 값을 채웁니다. `.env`는 git에 커밋되지 않습니다.
-
+localhost로 된 부분은 개발 진행환경의 도메인으로 변경하시면 됩니다.
 ```bash
 cp .env.example .env
 ```
