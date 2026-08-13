@@ -32,6 +32,7 @@ import com.sparta.delivery.repository.DeliveryManagerCursorRepository;
 import com.sparta.delivery.repository.DeliveryManagerRepository;
 import com.sparta.delivery.repository.DeliveryRepository;
 import com.sparta.delivery.repository.DeliveryRouteRepository;
+import com.sparta.delivery.repository.query.DeliverySearchCriteria;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -388,7 +389,7 @@ class DeliveryServiceTest {
                 .deliveryAddress("주소").recipientName("김말숙").build();
         Pageable pageable = PageRequest.of(0, 10);
 
-        when(deliveryRepository.search(any(), any(), any(), any(), any(), any(), any()))
+        when(deliveryRepository.search(any(), any()))
                 .thenReturn(new PageImpl<>(List.of(delivery), pageable, 1));
 
         ApiResponse<PageResponse<DeliverySummaryResponseDto>> response =
@@ -406,14 +407,14 @@ class DeliveryServiceTest {
         when(userClient.getUser(userId)).thenReturn(ApiResponse.success(
                 UserInfoResponse.builder().userId(userId).role(UserRole.HUB_MANAGER).hubId(hubId).build()
         ));
-        when(deliveryRepository.search(any(), any(), any(), any(), any(), any(), any()))
+        when(deliveryRepository.search(any(), any()))
                 .thenReturn(new PageImpl<>(List.of()));
 
         deliveryService.searchDelivery(null, null, null, PageRequest.of(0, 10), userId, UserRole.HUB_MANAGER);
 
-        ArgumentCaptor<UUID> scopeHubIdCaptor = ArgumentCaptor.forClass(UUID.class);
-        verify(deliveryRepository).search(any(), any(), any(), scopeHubIdCaptor.capture(), any(), any(), any());
-        assertThat(scopeHubIdCaptor.getValue()).isEqualTo(hubId);
+        ArgumentCaptor<DeliverySearchCriteria> criteriaCaptor = ArgumentCaptor.forClass(DeliverySearchCriteria.class);
+        verify(deliveryRepository).search(criteriaCaptor.capture(), any());
+        assertThat(criteriaCaptor.getValue().scopeHubId()).isEqualTo(hubId);
     }
 
     @Test
@@ -421,14 +422,15 @@ class DeliveryServiceTest {
         UUID userId = UUID.randomUUID();
         List<UUID> routeDeliveryIds = List.of(UUID.randomUUID());
         when(deliveryRouteRepository.findDeliveryIdByHubDeliveryManagerId(userId)).thenReturn(routeDeliveryIds);
-        when(deliveryRepository.search(any(), any(), any(), any(), any(), any(), any()))
+        when(deliveryRepository.search(any(), any()))
                 .thenReturn(new PageImpl<>(List.of()));
 
         deliveryService.searchDelivery(null, null, null, PageRequest.of(0, 10), userId, UserRole.DELIVERY_MANAGER);
 
-        ArgumentCaptor<UUID> scopeManagerIdCaptor = ArgumentCaptor.forClass(UUID.class);
-        verify(deliveryRepository).search(any(), any(), any(), any(), scopeManagerIdCaptor.capture(), eq(routeDeliveryIds), any());
-        assertThat(scopeManagerIdCaptor.getValue()).isEqualTo(userId);
+        ArgumentCaptor<DeliverySearchCriteria> criteriaCaptor = ArgumentCaptor.forClass(DeliverySearchCriteria.class);
+        verify(deliveryRepository).search(criteriaCaptor.capture(), any());
+        assertThat(criteriaCaptor.getValue().scopeManagerId()).isEqualTo(userId);
+        assertThat(criteriaCaptor.getValue().scopeRouteDeliveryIds()).isEqualTo(routeDeliveryIds);
     }
 
     @Test
