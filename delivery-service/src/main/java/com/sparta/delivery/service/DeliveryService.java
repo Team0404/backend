@@ -6,29 +6,23 @@ import com.sparta.common.exception.BusinessException;
 import com.sparta.common.exception.ErrorCode;
 import com.sparta.common.response.ApiResponse;
 import com.sparta.common.response.PageResponse;
-import com.sparta.common.security.UserPrincipal;
 import com.sparta.common.util.PageableUtil;
-import com.sparta.delivery.client.AiClient;
-import com.sparta.delivery.client.HubClient;
-import com.sparta.delivery.client.HubRouteClient;
-import com.sparta.delivery.client.OrderClient;
-import com.sparta.delivery.client.UserClient;
+import com.sparta.delivery.client.*;
 import com.sparta.delivery.client.dto.AiCancelRequest;
 import com.sparta.delivery.client.dto.HubRoutePathResponseDto;
 import com.sparta.delivery.client.dto.HubRouteSegmentResponseDto;
-import com.sparta.delivery.domain.event.DeliveryCreatedEvent;
 import com.sparta.delivery.domain.dto.request.DeliveryCancelRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryCreateRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryRouteUpdateRequestDto;
 import com.sparta.delivery.domain.dto.request.DeliveryUpdateRequestDto;
 import com.sparta.delivery.domain.dto.response.*;
 import com.sparta.delivery.domain.entity.*;
+import com.sparta.delivery.domain.event.DeliveryCreatedEvent;
 import com.sparta.delivery.exception.DeliveryErrorCode;
 import com.sparta.delivery.repository.DeliveryManagerCursorRepository;
 import com.sparta.delivery.repository.DeliveryManagerRepository;
 import com.sparta.delivery.repository.DeliveryRepository;
 import com.sparta.delivery.repository.DeliveryRouteRepository;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -62,7 +56,9 @@ public class DeliveryService {
     private final AiClient aiClient;
     private final ApplicationEventPublisher eventPublisher;
 
-    /** 내부 호출(X-Internal-Call)로 배송 생성/취소를 수행할 수 있는 서비스 목록. */
+    /**
+     * 내부 호출(X-Internal-Call)로 배송 생성/취소를 수행할 수 있는 서비스 목록.
+     */
     private static final Set<String> ALLOWED_INTERNAL_SERVICES = Set.of("order-service");
 
     private boolean isAllowedInternalCaller(String internalCaller) {
@@ -78,8 +74,8 @@ public class DeliveryService {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
 
-        if(deliveryRepository.existsByOrderId(request.getOrderId())){
-            throw new BusinessException(DeliveryErrorCode.DELIVERY_ALREADY_EXISTS);
+        if (deliveryRepository.existsByOrderId(request.getOrderId())) {
+            return ApiResponse.success(toCreateResponse(getExistingDeliveryOrThrow(request.getOrderId())));
         }
 
         UUID assignedId = assignNextManager(DeliveryManagerType.COMPANY, request.getDestHubId());
@@ -99,20 +95,32 @@ public class DeliveryService {
         try {
             savedDelivery = deliveryRepository.saveAndFlush(delivery);
         } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(DeliveryErrorCode.DELIVERY_ALREADY_EXISTS);
+            return ApiResponse.success(toCreateResponse(getExistingDeliveryOrThrow(request.getOrderId())));
         }
         List<DeliveryRoute> drList = buildDeliveryRoutes(savedDelivery, request.getOriginHubId(), request.getDestHubId());
         deliveryRouteRepository.saveAll(drList);
 
         publishDeliveryCreatedEvent(request, savedDelivery, drList);
 
-        return ApiResponse.success(
-                DeliveryCreateResponseDto.builder()
-                        .deliveryId(savedDelivery.getDeliveryId())
-                        .status(String.valueOf(savedDelivery.getStatus()))
-                        .routeCount(drList.size())
-                        .build()
-        );
+        return ApiResponse.success(toCreateResponse(savedDelivery, drList.size()));
+    }
+
+    private Delivery getExistingDeliveryOrThrow(UUID orderId) {
+        return deliveryRepository.findByOrderIdAndDeletedAtIsNull(orderId)
+                .orElseThrow(() -> new BusinessException(DeliveryErrorCode.DELIVERY_ALREADY_EXISTS));
+    }
+
+    private DeliveryCreateResponseDto toCreateResponse(Delivery delivery) {
+        int routeCount = deliveryRouteRepository.findAllByDeliveryOrderBySequenceAsc(delivery).size();
+        return toCreateResponse(delivery, routeCount);
+    }
+
+    private DeliveryCreateResponseDto toCreateResponse(Delivery delivery, int routeCount) {
+        return DeliveryCreateResponseDto.builder()
+                .deliveryId(delivery.getDeliveryId())
+                .status(String.valueOf(delivery.getStatus()))
+                .routeCount(routeCount)
+                .build();
     }
 
     /**
@@ -225,7 +233,7 @@ public class DeliveryService {
                 request.getStatus(), request.getDeliveryAddress(),
                 request.getRecipientName(), request.getRecipientSlackId(),
                 request.getCompanyDeliveryManagerId()
-                );
+        );
         return ApiResponse.success(DeliveryUpdateResponseDto.builder()
                 .deliveryId(delivery.getDeliveryId())
                 .status(delivery.getStatus())
@@ -372,12 +380,13 @@ public class DeliveryService {
 
     /**
      * role별 배송 접근 범위 검증.
-     *  - SUPPLIER_MANAGER: delivery.orderId 가 본인 주문인지 (Order 서비스 Feign)
-     *  실패 시 ACCESS_DENIED.
+     * - SUPPLIER_MANAGER: delivery.orderId 가 본인 주문인지 (Order 서비스 Feign)
+     * 실패 시 ACCESS_DENIED.
      */
     private void authorizeDeliveryAccess(Delivery delivery, UUID userId, UserRole role) {
         switch (role) {
-            case MASTER -> {}
+            case MASTER -> {
+            }
             case HUB_MANAGER -> {
                 ApiResponse<UserInfoResponse> userResponse = userClient.getUser(userId);
                 if (!userResponse.isSuccess()) {
@@ -417,10 +426,10 @@ public class DeliveryService {
 
     /**
      * 배송 경로 접근 범위 검증.
-     *  - MASTER: 통과
-     *  - HUB_MANAGER: userId의 담당 허브 ∈ {route origin/dest hub}
-     *  - DELIVERY_MANAGER: 해당 경로의 hubDeliveryManagerId == userId 인 경우만
-     *  - SUPPLIER_MANAGER: 접근 불가
+     * - MASTER: 통과
+     * - HUB_MANAGER: userId의 담당 허브 ∈ {route origin/dest hub}
+     * - DELIVERY_MANAGER: 해당 경로의 hubDeliveryManagerId == userId 인 경우만
+     * - SUPPLIER_MANAGER: 접근 불가
      */
     private void authorizeRouteAccess(DeliveryRoute route, UUID userId, UserRole role) {
         switch (role) {

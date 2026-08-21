@@ -6,11 +6,7 @@ import com.sparta.common.exception.BusinessException;
 import com.sparta.common.exception.ErrorCode;
 import com.sparta.common.response.ApiResponse;
 import com.sparta.common.response.PageResponse;
-import com.sparta.delivery.client.AiClient;
-import com.sparta.delivery.client.HubClient;
-import com.sparta.delivery.client.HubRouteClient;
-import com.sparta.delivery.client.OrderClient;
-import com.sparta.delivery.client.UserClient;
+import com.sparta.delivery.client.*;
 import com.sparta.delivery.client.dto.HubRoutePathResponseDto;
 import com.sparta.delivery.client.dto.HubRouteSegmentResponseDto;
 import com.sparta.delivery.domain.dto.request.DeliveryCancelRequestDto;
@@ -20,13 +16,7 @@ import com.sparta.delivery.domain.dto.request.DeliveryUpdateRequestDto;
 import com.sparta.delivery.domain.dto.response.DeliveryCancelResponseDto;
 import com.sparta.delivery.domain.dto.response.DeliveryRouteSearchResponseDto;
 import com.sparta.delivery.domain.dto.response.DeliverySummaryResponseDto;
-import com.sparta.delivery.domain.entity.Delivery;
-import com.sparta.delivery.domain.entity.DeliveryManager;
-import com.sparta.delivery.domain.entity.DeliveryManagerCursor;
-import com.sparta.delivery.domain.entity.DeliveryManagerType;
-import com.sparta.delivery.domain.entity.DeliveryRoute;
-import com.sparta.delivery.domain.entity.DeliveryRouteStatusEnum;
-import com.sparta.delivery.domain.entity.DeliveryStatusEnum;
+import com.sparta.delivery.domain.entity.*;
 import com.sparta.delivery.exception.DeliveryErrorCode;
 import com.sparta.delivery.repository.DeliveryManagerCursorRepository;
 import com.sparta.delivery.repository.DeliveryManagerRepository;
@@ -35,14 +25,13 @@ import com.sparta.delivery.repository.DeliveryRouteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.data.domain.Page;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -51,13 +40,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 class DeliveryServiceTest {
 
@@ -268,13 +252,95 @@ class DeliveryServiceTest {
     @Test
     void createDelivery_duplicateOrderId_throwsAlreadyExists() {
         DeliveryCreateRequestDto request = createRequest(UUID.randomUUID());
+        UUID existingDeliveryId = UUID.randomUUID();
+        Delivery existingDelivery = Delivery.builder()
+                .deliveryId(existingDeliveryId)
+                .orderId(request.getOrderId())
+                .originHubId(request.getOriginHubId())
+                .destHubId(request.getDestHubId())
+                .deliveryAddress(request.getDeliveryAddress())
+                .recipientName(request.getRecipientName())
+                .recipientSlackId(request.getRecipientSlackId())
+                .build();
         when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(true);
+        when(deliveryRepository.findByOrderIdAndDeletedAtIsNull(request.getOrderId()))
+                .thenReturn(Optional.of(existingDelivery));
+        when(deliveryRouteRepository.findAllByDeliveryOrderBySequenceAsc(existingDelivery))
+                .thenReturn(List.of());
 
-        assertThatThrownBy(() -> deliveryService.createDelivery(request, UUID.randomUUID(), UserRole.MASTER, null))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        e -> assertThat(e.getErrorCode()).isEqualTo(DeliveryErrorCode.DELIVERY_ALREADY_EXISTS));
+        ApiResponse<?> response = deliveryService.createDelivery(request, UUID.randomUUID(), UserRole.MASTER, null);
 
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(((com.sparta.delivery.domain.dto.response.DeliveryCreateResponseDto) response.getData()).getDeliveryId())
+                .isEqualTo(existingDeliveryId);
         verify(deliveryRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createDelivery_duplicateOrderId_returnsExistingDeliveryIdempotently() {
+        DeliveryCreateRequestDto request = createRequest(UUID.randomUUID());
+        UUID existingDeliveryId = UUID.randomUUID();
+        Delivery existingDelivery = Delivery.builder()
+                .deliveryId(existingDeliveryId)
+                .orderId(request.getOrderId())
+                .originHubId(request.getOriginHubId())
+                .destHubId(request.getDestHubId())
+                .deliveryAddress(request.getDeliveryAddress())
+                .recipientName(request.getRecipientName())
+                .recipientSlackId(request.getRecipientSlackId())
+                .build();
+
+        stubEmptyRoutePath(request.getOriginHubId(), request.getDestHubId());
+        when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(false, true);
+        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, request.getDestHubId()))
+                .thenReturn(List.of());
+        when(deliveryRepository.saveAndFlush(any(Delivery.class))).thenReturn(existingDelivery);
+        when(deliveryRepository.findByOrderIdAndDeletedAtIsNull(request.getOrderId()))
+                .thenReturn(Optional.of(existingDelivery));
+        when(deliveryRouteRepository.findAllByDeliveryOrderBySequenceAsc(existingDelivery))
+                .thenReturn(List.of());
+
+        ApiResponse<?> firstResponse = deliveryService.createDelivery(request, UUID.randomUUID(), UserRole.MASTER, null);
+        ApiResponse<?> secondResponse = deliveryService.createDelivery(request, UUID.randomUUID(), UserRole.MASTER, null);
+
+        UUID firstDeliveryId = ((com.sparta.delivery.domain.dto.response.DeliveryCreateResponseDto) firstResponse.getData()).getDeliveryId();
+        UUID secondDeliveryId = ((com.sparta.delivery.domain.dto.response.DeliveryCreateResponseDto) secondResponse.getData()).getDeliveryId();
+
+        assertThat(firstDeliveryId).isEqualTo(existingDeliveryId);
+        assertThat(secondDeliveryId).isEqualTo(existingDeliveryId);
+        verify(deliveryRepository, org.mockito.Mockito.times(1)).saveAndFlush(any(Delivery.class));
+    }
+
+    @Test
+    void createDelivery_uniqueConstraintRace_returnsExistingDeliveryInsteadOfThrowing() {
+        DeliveryCreateRequestDto request = createRequest(UUID.randomUUID());
+        UUID existingDeliveryId = UUID.randomUUID();
+        Delivery existingDelivery = Delivery.builder()
+                .deliveryId(existingDeliveryId)
+                .orderId(request.getOrderId())
+                .originHubId(request.getOriginHubId())
+                .destHubId(request.getDestHubId())
+                .deliveryAddress(request.getDeliveryAddress())
+                .recipientName(request.getRecipientName())
+                .recipientSlackId(request.getRecipientSlackId())
+                .build();
+
+        stubEmptyRoutePath(request.getOriginHubId(), request.getDestHubId());
+        when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(false);
+        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, request.getDestHubId()))
+                .thenReturn(List.of());
+        when(deliveryRepository.saveAndFlush(any(Delivery.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate order_id"));
+        when(deliveryRepository.findByOrderIdAndDeletedAtIsNull(request.getOrderId()))
+                .thenReturn(Optional.of(existingDelivery));
+        when(deliveryRouteRepository.findAllByDeliveryOrderBySequenceAsc(existingDelivery))
+                .thenReturn(List.of());
+
+        ApiResponse<?> response = deliveryService.createDelivery(request, UUID.randomUUID(), UserRole.MASTER, null);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(((com.sparta.delivery.domain.dto.response.DeliveryCreateResponseDto) response.getData()).getDeliveryId())
+                .isEqualTo(existingDeliveryId);
     }
 
     @Test

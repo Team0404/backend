@@ -4,6 +4,13 @@ server:
 spring:
   application:
     name: order-service
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: ${ORDER_SAGA_FEIGN_CONNECT_TIMEOUT:1000}
+            readTimeout: ${ORDER_SAGA_FEIGN_READ_TIMEOUT:5000}
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:order_service}
     username: ${DB_USERNAME:postgres}
@@ -41,3 +48,10 @@ management:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+
+app:
+  saga:
+    retry:
+      max-attempts: ${ORDER_SAGA_RETRY_MAX_ATTEMPTS:3}
+      wait-duration-ms: ${ORDER_SAGA_RETRY_WAIT_DURATION_MS:200}
+      exponential-backoff-multiplier: ${ORDER_SAGA_RETRY_EXPONENTIAL_BACKOFF_MULTIPLIER:2.0}

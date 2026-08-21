@@ -8,11 +8,11 @@ import com.sparta.order.client.DeliveryClient;
 import com.sparta.order.client.ProductClient;
 import com.sparta.order.client.UserClient;
 import com.sparta.order.client.dto.CompanyResponse;
-import com.sparta.order.client.dto.DeliveryCreateRequest;
 import com.sparta.order.client.dto.DeliveryCreateResponse;
 import com.sparta.order.client.dto.ProductResponse;
 import com.sparta.order.client.dto.UserResponse;
 import com.sparta.order.dto.request.CreateOrderRequest;
+import com.sparta.order.dto.response.OrderResponse;
 import com.sparta.order.entity.Order;
 import com.sparta.order.entity.OrderItem;
 import com.sparta.order.entity.OrderStatus;
@@ -38,9 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplTest {
@@ -55,6 +53,8 @@ class OrderServiceImplTest {
     private DeliveryClient deliveryClient;
     @Mock
     private UserClient userClient;
+    @Mock
+    private OrderSagaRemoteService orderSagaRemoteService;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -127,7 +127,7 @@ class OrderServiceImplTest {
 
         stubCreateOrderPrerequisites(productId);
         given(orderRepository.save(any(Order.class))).willAnswer(invocation -> invocation.getArgument(0));
-        given(deliveryClient.createDelivery(any(DeliveryCreateRequest.class)))
+        given(orderSagaRemoteService.createDelivery(any()))
                 .willThrow(new RuntimeException("delivery failed"));
 
         assertThatThrownBy(() -> orderService.createOrder(request, supplierContext()))
@@ -136,8 +136,8 @@ class OrderServiceImplTest {
         ArgumentCaptor<String> decreaseReferenceCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> restoreReferenceCaptor = ArgumentCaptor.forClass(String.class);
 
-        verify(productClient).decreaseStock(eq(productId), eq(1), decreaseReferenceCaptor.capture());
-        verify(productClient).restoreStock(eq(productId), eq(1), restoreReferenceCaptor.capture());
+        verify(orderSagaRemoteService).decreaseStock(eq(productId), eq(1), decreaseReferenceCaptor.capture());
+        verify(orderSagaRemoteService).restoreStock(eq(productId), eq(1), restoreReferenceCaptor.capture());
 
         String decreaseReferenceId = decreaseReferenceCaptor.getValue();
         String restoreReferenceId = restoreReferenceCaptor.getValue();
@@ -172,7 +172,7 @@ class OrderServiceImplTest {
 
         orderService.cancelOrder(UUID.randomUUID(), supplierContext());
 
-        verify(productClient).restoreStock(
+        verify(orderSagaRemoteService).restoreStock(
                 eq(productId),
                 eq(2),
                 eq(stockOperationId + ":RESTORE")
@@ -195,19 +195,42 @@ class OrderServiceImplTest {
 
         stubCreateOrderPrerequisites(productId);
         given(orderRepository.save(any(Order.class))).willAnswer(invocation -> invocation.getArgument(0));
-        given(deliveryClient.createDelivery(any(DeliveryCreateRequest.class)))
-                .willReturn(ApiResponse.success(new DeliveryCreateResponse(UUID.randomUUID(), "READY", 1)));
+        given(orderSagaRemoteService.createDelivery(any()))
+                .willReturn(new DeliveryCreateResponse(UUID.randomUUID(), "READY", 1));
 
         orderService.createOrder(request, supplierContext());
 
         ArgumentCaptor<String> referenceCaptor = ArgumentCaptor.forClass(String.class);
-        verify(productClient, times(2)).decreaseStock(eq(productId), any(Integer.class), referenceCaptor.capture());
+        verify(orderSagaRemoteService, times(2)).decreaseStock(eq(productId), any(Integer.class), referenceCaptor.capture());
 
         List<String> referenceIds = referenceCaptor.getAllValues();
         assertThat(referenceIds).hasSize(2);
         assertThat(referenceIds.get(0)).endsWith(":DECREASE");
         assertThat(referenceIds.get(1)).endsWith(":DECREASE");
         assertThat(referenceIds.get(0)).isNotEqualTo(referenceIds.get(1));
+    }
+
+    @Test
+    @DisplayName("이미 존재하는 Delivery의 deliveryId 응답을 받아도 주문 생성 Saga는 성공 흐름으로 진행한다")
+    void createOrderSucceedsWhenDeliveryAlreadyExistsResponseReturned() {
+        UUID productId = UUID.randomUUID();
+        UUID existingDeliveryId = UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest(
+                supplierCompanyId,
+                List.of(new CreateOrderRequest.OrderItemRequest(productId, 1)),
+                "요청",
+                LocalDateTime.now().plusDays(1)
+        );
+
+        stubCreateOrderPrerequisites(productId);
+        given(orderRepository.save(any(Order.class))).willAnswer(invocation -> invocation.getArgument(0));
+        given(orderSagaRemoteService.createDelivery(any()))
+                .willReturn(new DeliveryCreateResponse(existingDeliveryId, "HUB_WAIT", 0));
+
+        OrderResponse response = orderService.createOrder(request, supplierContext());
+
+        assertThat(response.deliveryId()).isEqualTo(existingDeliveryId);
+        assertThat(response.status()).isEqualTo(OrderStatus.READY);
     }
 
     private void stubCreateOrderPrerequisites(UUID productId) {
