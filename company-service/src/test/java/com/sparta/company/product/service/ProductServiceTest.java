@@ -237,6 +237,29 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("동일한 DECREASE referenceId로 두 번 호출해도 재고는 한 번만 차감된다")
+    void decreaseStock_sameReferenceIdTwice_decreasesOnce() {
+        Product product = Product.builder()
+                .name("마른오징어 가공품")
+                .company(company)
+                .hubId(hubId)
+                .price(15000L)
+                .stockQuantity(10L)
+                .build();
+        String referenceId = UUID.randomUUID() + ":DECREASE";
+
+        given(productRepository.findByIdForUpdate(productId)).willReturn(Optional.of(product));
+        given(stockMovementRepository.existsByProductIdAndReferenceIdAndMovementType(
+                productId, referenceId, ProductStockMovement.MovementType.DECREASE))
+                .willReturn(false, true);
+
+        productService.decreaseStock(productId, 1, referenceId);
+        productService.decreaseStock(productId, 1, referenceId);
+
+        assertThat(product.getStockQuantity()).isEqualTo(9L);
+    }
+
+    @Test
     @DisplayName("재고보다 많은 수량을 차감하려 하면 예외가 발생한다")
     void decreaseStock_fail_insufficientStock() {
         // given
@@ -274,6 +297,29 @@ class ProductServiceTest {
 
         // then
         assertThat(product.getStockQuantity()).isEqualTo(100L);
+    }
+
+    @Test
+    @DisplayName("동일한 RESTORE referenceId로 두 번 복구해도 재고는 한 번만 복원된다")
+    void restoreStock_sameReferenceIdTwice_restoresOnce() {
+        Product product = Product.builder()
+                .name("마른오징어 가공품")
+                .company(company)
+                .hubId(hubId)
+                .price(15000L)
+                .stockQuantity(9L)
+                .build();
+        String referenceId = UUID.randomUUID() + ":RESTORE";
+
+        given(productRepository.findByIdForUpdate(productId)).willReturn(Optional.of(product));
+        given(stockMovementRepository.existsByProductIdAndReferenceIdAndMovementType(
+                productId, referenceId, ProductStockMovement.MovementType.RESTORE))
+                .willReturn(false, true);
+
+        productService.restoreStock(productId, 1, referenceId);
+        productService.restoreStock(productId, 1, referenceId);
+
+        assertThat(product.getStockQuantity()).isEqualTo(10L);
     }
 
     @Test

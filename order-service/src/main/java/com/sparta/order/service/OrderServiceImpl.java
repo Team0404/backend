@@ -94,14 +94,19 @@ public class OrderServiceImpl implements OrderService {
         try {
             for (CreateOrderRequest.OrderItemRequest itemRequest : request.orderItems()) {
                 ProductResponse product = productResponses.get(itemRequest.productId());
-                productClient.decreaseStock(itemRequest.productId(), itemRequest.quantity());
-
                 OrderItem orderItem = OrderItem.builder()
                         .productId(itemRequest.productId())
                         .productName(product.name())
                         .unitPrice(product.price())
                         .quantity(itemRequest.quantity())
+                        .stockOperationId(UUID.randomUUID())
                         .build();
+
+                productClient.decreaseStock(
+                        itemRequest.productId(),
+                        itemRequest.quantity(),
+                        orderItem.decreaseStockReferenceId()
+                );
 
                 order.addOrderItem(orderItem);
                 createdOrderItems.add(orderItem);
@@ -204,7 +209,11 @@ public class OrderServiceImpl implements OrderService {
         validateCancelableStatus(order);
 
         for (OrderItem orderItem : order.getOrderItems()) {
-            productClient.restoreStock(orderItem.getProductId(), orderItem.getQuantity());
+            productClient.restoreStock(
+                    orderItem.getProductId(),
+                    orderItem.getQuantity(),
+                    orderItem.restoreStockReferenceId()
+            );
         }
 
         if (order.getDeliveryId() != null) {
@@ -235,7 +244,11 @@ public class OrderServiceImpl implements OrderService {
 
         for (OrderItem orderItem : createdOrderItems) {
             try {
-                productClient.restoreStock(orderItem.getProductId(), orderItem.getQuantity());
+                productClient.restoreStock(
+                        orderItem.getProductId(),
+                        orderItem.getQuantity(),
+                        orderItem.restoreStockReferenceId()
+                );
             } catch (Exception exception) {
                 log.error(
                         "재고 복구 실패. productId={}, quantity={}",

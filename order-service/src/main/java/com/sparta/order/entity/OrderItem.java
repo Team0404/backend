@@ -16,6 +16,9 @@ import java.util.UUID;
 @Builder
 public class OrderItem extends BaseEntity {
 
+    private static final String DECREASE_SUFFIX = ":DECREASE";
+    private static final String RESTORE_SUFFIX = ":RESTORE";
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -36,7 +39,18 @@ public class OrderItem extends BaseEntity {
     @Column(nullable = false)
     private Integer quantity;
 
+    @Column(name = "stock_operation_id", nullable = false, unique = true, columnDefinition = "uuid")
+    private UUID stockOperationId;
+
     public void assignOrder(Order order) {
         this.order = order;
+    }
+
+    public String decreaseStockReferenceId() {
+        return stockOperationId + DECREASE_SUFFIX;
+    }
+
+    public String restoreStockReferenceId() {
+        return stockOperationId + RESTORE_SUFFIX;
     }
 }

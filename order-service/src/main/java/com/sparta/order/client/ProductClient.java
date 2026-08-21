@@ -17,8 +17,16 @@ public interface ProductClient {
     ApiResponse<ProductResponse> getProduct(@PathVariable("id") UUID productId);
 
     @PostMapping("/{id}/decrease-stock")
-    ApiResponse<Void> decreaseStock(@PathVariable("id") UUID productId, @RequestParam("quantity") Integer quantity);
+    ApiResponse<Void> decreaseStock(
+            @PathVariable("id") UUID productId,
+            @RequestParam("quantity") Integer quantity,
+            @RequestParam("referenceId") String referenceId
+    );
 
     @PostMapping("/{id}/restore-stock")
-    ApiResponse<Void> restoreStock(@PathVariable("id") UUID productId, @RequestParam("quantity") Integer quantity);
+    ApiResponse<Void> restoreStock(
+            @PathVariable("id") UUID productId,
+            @RequestParam("quantity") Integer quantity,
+            @RequestParam("referenceId") String referenceId
+    );
 }
