@@ -36,7 +36,6 @@ import com.sparta.delivery.repository.query.DeliverySearchCriteria;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.data.domain.Page;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -66,6 +65,7 @@ class DeliveryServiceTest {
     private DeliveryRouteRepository deliveryRouteRepository;
     private DeliveryManagerRepository deliveryManagerRepository;
     private DeliveryManagerCursorRepository deliveryManagerCursorRepository;
+    private RoundRobinManager roundRobinManager;
     private UserClient userClient;
     private OrderClient orderClient;
     private HubClient hubClient;
@@ -80,6 +80,7 @@ class DeliveryServiceTest {
         deliveryRouteRepository = mock(DeliveryRouteRepository.class);
         deliveryManagerRepository = mock(DeliveryManagerRepository.class);
         deliveryManagerCursorRepository = mock(DeliveryManagerCursorRepository.class);
+        roundRobinManager = mock(RoundRobinManager.class);
         userClient = mock(UserClient.class);
         orderClient = mock(OrderClient.class);
         hubClient = mock(HubClient.class);
@@ -87,9 +88,8 @@ class DeliveryServiceTest {
         aiClient = mock(AiClient.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         deliveryService = new DeliveryService(
-                deliveryRepository, deliveryRouteRepository, deliveryManagerRepository,
-                deliveryManagerCursorRepository, userClient, orderClient, hubClient,
-                hubRouteClient, aiClient, eventPublisher
+                deliveryRepository, deliveryRouteRepository,
+                userClient, hubRouteClient, aiClient, eventPublisher, roundRobinManager
         );
 
         when(deliveryManagerCursorRepository.save(any(DeliveryManagerCursor.class)))
@@ -105,10 +105,8 @@ class DeliveryServiceTest {
 
         stubEmptyRoutePath(request.getOriginHubId(), destHubId);
         when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(false);
-        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, destHubId))
-                .thenReturn(List.of(companyManager(managerA, destHubId, 0), companyManager(managerB, destHubId, 1)));
-        when(deliveryManagerCursorRepository.findLastAssignedManagerIdByTypeAndHubIdAndDeletedAtIsNull(DeliveryManagerType.COMPANY, destHubId))
-                .thenReturn(Optional.empty());
+        when(roundRobinManager.assignNextManager(DeliveryManagerType.COMPANY, destHubId))
+                .thenReturn(managerA);
         when(deliveryRepository.saveAndFlush(any(Delivery.class)))
                 .thenAnswer(invocation -> {
                     Delivery arg = invocation.getArgument(0);
@@ -199,12 +197,12 @@ class DeliveryServiceTest {
                         ))
                         .build()));
         when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(false);
-        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, destHubId))
-                .thenReturn(List.of());
-        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(eq(DeliveryManagerType.HUB), any()))
-                .thenReturn(List.of(companyManager(hubManagerA, null, 0), companyManager(hubManagerB, null, 1)));
-        when(deliveryManagerCursorRepository.findLastAssignedManagerIdByTypeAndHubIdAndDeletedAtIsNull(eq(DeliveryManagerType.HUB), any()))
-                .thenReturn(Optional.empty());
+        when(roundRobinManager.assignNextManager(DeliveryManagerType.COMPANY, destHubId))
+                .thenReturn(null);
+        when(roundRobinManager.assignNextManager(DeliveryManagerType.HUB, originHubId))
+                .thenReturn(hubManagerA);
+        when(roundRobinManager.assignNextManager(DeliveryManagerType.HUB, waypointHubId))
+                .thenReturn(hubManagerB);
         when(deliveryRepository.saveAndFlush(any(Delivery.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -357,28 +355,6 @@ class DeliveryServiceTest {
 
         assertThat(delivery.isDeleted()).isTrue();
         assertThat(route.isDeleted()).isTrue();
-    }
-
-    @Test
-    void assignNextManager_cyclesThroughGroupInSequenceOrder() {
-        UUID hubId = UUID.randomUUID();
-        UUID managerA = UUID.randomUUID();
-        UUID managerB = UUID.randomUUID();
-        UUID managerC = UUID.randomUUID();
-
-        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, hubId))
-                .thenReturn(List.of(companyManager(managerA, hubId, 0), companyManager(managerB, hubId, 1), companyManager(managerC, hubId, 2)));
-
-        DeliveryManagerCursor cursor = DeliveryManagerCursor.builder()
-                .type(DeliveryManagerType.COMPANY).hubId(hubId).lastAssignedManagerId(managerB)
-                .build();
-        when(deliveryManagerCursorRepository.findLastAssignedManagerIdByTypeAndHubIdAndDeletedAtIsNull(DeliveryManagerType.COMPANY, hubId))
-                .thenReturn(Optional.of(cursor));
-
-        UUID next = deliveryService.assignNextManager(DeliveryManagerType.COMPANY, hubId);
-
-        assertThat(next).isEqualTo(managerC);
-        assertThat(cursor.getLastAssignedManagerId()).isEqualTo(managerC);
     }
 
     @Test
