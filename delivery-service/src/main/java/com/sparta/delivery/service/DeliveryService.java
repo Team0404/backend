@@ -23,6 +23,8 @@ import com.sparta.delivery.repository.DeliveryManagerCursorRepository;
 import com.sparta.delivery.repository.DeliveryManagerRepository;
 import com.sparta.delivery.repository.DeliveryRepository;
 import com.sparta.delivery.repository.DeliveryRouteRepository;
+import com.sparta.delivery.repository.query.DeliverySearchCriteria;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -47,11 +49,7 @@ public class DeliveryService {
 
     private final DeliveryRepository deliveryRepository;
     private final DeliveryRouteRepository deliveryRouteRepository;
-    private final DeliveryManagerRepository deliveryManagerRepository;
-    private final DeliveryManagerCursorRepository deliveryManagerCursorRepository;
     private final UserClient userClient;
-    private final OrderClient orderClient;
-    private final HubClient hubClient;
     private final HubRouteClient hubRouteClient;
     private final AiClient aiClient;
     private final ApplicationEventPublisher eventPublisher;
@@ -59,6 +57,9 @@ public class DeliveryService {
     /**
      * 내부 호출(X-Internal-Call)로 배송 생성/취소를 수행할 수 있는 서비스 목록.
      */
+    private final RoundRobinManager roundRobinManager;
+
+    /** 내부 호출(X-Internal-Call)로 배송 생성/취소를 수행할 수 있는 서비스 목록. */
     private static final Set<String> ALLOWED_INTERNAL_SERVICES = Set.of("order-service");
 
     private boolean isAllowedInternalCaller(String internalCaller) {
@@ -78,7 +79,7 @@ public class DeliveryService {
             return ApiResponse.success(toCreateResponse(getExistingDeliveryOrThrow(request.getOrderId())));
         }
 
-        UUID assignedId = assignNextManager(DeliveryManagerType.COMPANY, request.getDestHubId());
+        UUID assignedId = roundRobinManager.assignNextManager(DeliveryManagerType.COMPANY, request.getDestHubId());
 
         Delivery delivery = Delivery.builder()
                 .orderId(request.getOrderId())
@@ -138,7 +139,7 @@ public class DeliveryService {
         // 알림 대상은 첫 구간을 맡은 허브 배송담당자다. 경로가 아직 생성되지 않는 동안에는
         // 출발 허브 기준으로 직접 배정해 알림 대상만이라도 확보한다.
         UUID hubDeliveryManagerId = routes.isEmpty()
-                ? assignNextManager(DeliveryManagerType.HUB, request.getOriginHubId())
+                ? roundRobinManager.assignNextManager(DeliveryManagerType.HUB, request.getOriginHubId())
                 : routes.get(0).getHubDeliveryManagerId();
 
         List<UUID> waypointHubIds = routes.stream()
@@ -209,9 +210,10 @@ public class DeliveryService {
             case SUPPLIER_MANAGER -> throw new UnsupportedOperationException("TODO: OrderClient 본인 주문 목록 조회 API 필요");
         }
 
-        Page<Delivery> page = deliveryRepository.search(
-                statusEnum, destHubId, recipientName, scopeHubId, scopeManagerId, scopeRouteDeliveryIds, normalized
+        DeliverySearchCriteria criteria = new DeliverySearchCriteria(
+                statusEnum, destHubId, recipientName, scopeHubId, scopeManagerId, scopeRouteDeliveryIds
         );
+        Page<Delivery> page = deliveryRepository.search(criteria, normalized);
 
         return ApiResponse.success(PageResponse.from(page.map(d -> DeliverySummaryResponseDto.builder()
                 .deliveryId(d.getDeliveryId())
@@ -488,46 +490,9 @@ public class DeliveryService {
                     .destHubId(segment.getArrivalHubId())
                     .expectedDistanceKm(segment.getDistanceKm())
                     .expectedDurationMin(segment.getDurationMinutes())
-                    .hubDeliveryManagerId(assignNextManager(DeliveryManagerType.HUB, segment.getDepartureHubId()))
+                    .hubDeliveryManagerId(roundRobinManager.assignNextManager(DeliveryManagerType.HUB, segment.getDepartureHubId()))
                     .build());
         }
         return routes;
     }
-
-    /**
-     * 라운드로빈 담당자 배정: 그룹(HUB=전체 / COMPANY=해당 hubId)에서 sequence 이용
-     * 반환값 = 배정된 담당자 userId.
-     */
-    @Transactional
-    protected UUID assignNextManager(DeliveryManagerType type, UUID hubId) {
-        UUID managerHubId = type == DeliveryManagerType.HUB ? null : hubId;
-        UUID cursorHubId = type == DeliveryManagerType.HUB ? DeliveryManagerCursor.GLOBAL_HUB_ID : hubId;
-
-        List<DeliveryManager> dmList = deliveryManagerRepository
-                .findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(type, managerHubId);
-        if (dmList.isEmpty()) {
-            return null;
-        }
-
-        DeliveryManagerCursor savedCursor = deliveryManagerCursorRepository
-                .findLastAssignedManagerIdByTypeAndHubIdAndDeletedAtIsNull(type, cursorHubId)
-                .orElseGet(() -> deliveryManagerCursorRepository.save(DeliveryManagerCursor.builder()
-                        .type(type)
-                        .hubId(cursorHubId)
-                        .lastAssignedManagerId(null)
-                        .build()));
-
-        int lastIndex = -1;
-        for (int i = 0; i < dmList.size(); i++) {
-            if (dmList.get(i).getUserId().equals(savedCursor.getLastAssignedManagerId())) {
-                lastIndex = i;
-                break;
-            }
-        }
-
-        UUID nextManagerId = dmList.get((lastIndex + 1) % dmList.size()).getUserId();
-        savedCursor.updateLastManager(nextManagerId);
-        return nextManagerId;
-    }
-
 }

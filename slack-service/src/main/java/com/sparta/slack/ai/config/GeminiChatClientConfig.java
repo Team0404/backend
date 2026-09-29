@@ -3,9 +3,9 @@ package com.sparta.slack.ai.config;
 import com.google.genai.Client;
 import com.google.genai.types.HttpOptions;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
 /**
  * Gemini 호출용 {@link ChatClient} 및 하위 {@link Client} 빈 설정.
@@ -27,7 +27,8 @@ public class GeminiChatClientConfig {
 
     /** spring-ai 자동설정({@code GoogleGenAiChatAutoConfiguration})의 Client 빈을 대체한다. */
     @Bean
-    public Client googleGenAiClient(@Value("${spring.ai.google.genai.api-key}") String apiKey) {
+    public Client googleGenAiClient(Environment environment) {
+        String apiKey = environment.getRequiredProperty("spring.ai.google.genai.api-key");
         return Client.builder()
                 .apiKey(apiKey)
                 .httpOptions(HttpOptions.builder()

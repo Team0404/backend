@@ -22,6 +22,7 @@ import com.sparta.delivery.repository.DeliveryManagerCursorRepository;
 import com.sparta.delivery.repository.DeliveryManagerRepository;
 import com.sparta.delivery.repository.DeliveryRepository;
 import com.sparta.delivery.repository.DeliveryRouteRepository;
+import com.sparta.delivery.repository.query.DeliverySearchCriteria;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -49,6 +50,7 @@ class DeliveryServiceTest {
     private DeliveryRouteRepository deliveryRouteRepository;
     private DeliveryManagerRepository deliveryManagerRepository;
     private DeliveryManagerCursorRepository deliveryManagerCursorRepository;
+    private RoundRobinManager roundRobinManager;
     private UserClient userClient;
     private OrderClient orderClient;
     private HubClient hubClient;
@@ -63,6 +65,7 @@ class DeliveryServiceTest {
         deliveryRouteRepository = mock(DeliveryRouteRepository.class);
         deliveryManagerRepository = mock(DeliveryManagerRepository.class);
         deliveryManagerCursorRepository = mock(DeliveryManagerCursorRepository.class);
+        roundRobinManager = mock(RoundRobinManager.class);
         userClient = mock(UserClient.class);
         orderClient = mock(OrderClient.class);
         hubClient = mock(HubClient.class);
@@ -70,9 +73,8 @@ class DeliveryServiceTest {
         aiClient = mock(AiClient.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         deliveryService = new DeliveryService(
-                deliveryRepository, deliveryRouteRepository, deliveryManagerRepository,
-                deliveryManagerCursorRepository, userClient, orderClient, hubClient,
-                hubRouteClient, aiClient, eventPublisher
+                deliveryRepository, deliveryRouteRepository,
+                userClient, hubRouteClient, aiClient, eventPublisher, roundRobinManager
         );
 
         when(deliveryManagerCursorRepository.save(any(DeliveryManagerCursor.class)))
@@ -88,10 +90,8 @@ class DeliveryServiceTest {
 
         stubEmptyRoutePath(request.getOriginHubId(), destHubId);
         when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(false);
-        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, destHubId))
-                .thenReturn(List.of(companyManager(managerA, destHubId, 0), companyManager(managerB, destHubId, 1)));
-        when(deliveryManagerCursorRepository.findLastAssignedManagerIdByTypeAndHubIdAndDeletedAtIsNull(DeliveryManagerType.COMPANY, destHubId))
-                .thenReturn(Optional.empty());
+        when(roundRobinManager.assignNextManager(DeliveryManagerType.COMPANY, destHubId))
+                .thenReturn(managerA);
         when(deliveryRepository.saveAndFlush(any(Delivery.class)))
                 .thenAnswer(invocation -> {
                     Delivery arg = invocation.getArgument(0);
@@ -182,12 +182,12 @@ class DeliveryServiceTest {
                         ))
                         .build()));
         when(deliveryRepository.existsByOrderId(request.getOrderId())).thenReturn(false);
-        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, destHubId))
-                .thenReturn(List.of());
-        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(eq(DeliveryManagerType.HUB), any()))
-                .thenReturn(List.of(companyManager(hubManagerA, null, 0), companyManager(hubManagerB, null, 1)));
-        when(deliveryManagerCursorRepository.findLastAssignedManagerIdByTypeAndHubIdAndDeletedAtIsNull(eq(DeliveryManagerType.HUB), any()))
-                .thenReturn(Optional.empty());
+        when(roundRobinManager.assignNextManager(DeliveryManagerType.COMPANY, destHubId))
+                .thenReturn(null);
+        when(roundRobinManager.assignNextManager(DeliveryManagerType.HUB, originHubId))
+                .thenReturn(hubManagerA);
+        when(roundRobinManager.assignNextManager(DeliveryManagerType.HUB, waypointHubId))
+                .thenReturn(hubManagerB);
         when(deliveryRepository.saveAndFlush(any(Delivery.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -425,28 +425,6 @@ class DeliveryServiceTest {
     }
 
     @Test
-    void assignNextManager_cyclesThroughGroupInSequenceOrder() {
-        UUID hubId = UUID.randomUUID();
-        UUID managerA = UUID.randomUUID();
-        UUID managerB = UUID.randomUUID();
-        UUID managerC = UUID.randomUUID();
-
-        when(deliveryManagerRepository.findAllByTypeAndHubIdAndDeletedAtIsNullOrderBySequenceAsc(DeliveryManagerType.COMPANY, hubId))
-                .thenReturn(List.of(companyManager(managerA, hubId, 0), companyManager(managerB, hubId, 1), companyManager(managerC, hubId, 2)));
-
-        DeliveryManagerCursor cursor = DeliveryManagerCursor.builder()
-                .type(DeliveryManagerType.COMPANY).hubId(hubId).lastAssignedManagerId(managerB)
-                .build();
-        when(deliveryManagerCursorRepository.findLastAssignedManagerIdByTypeAndHubIdAndDeletedAtIsNull(DeliveryManagerType.COMPANY, hubId))
-                .thenReturn(Optional.of(cursor));
-
-        UUID next = deliveryService.assignNextManager(DeliveryManagerType.COMPANY, hubId);
-
-        assertThat(next).isEqualTo(managerC);
-        assertThat(cursor.getLastAssignedManagerId()).isEqualTo(managerC);
-    }
-
-    @Test
     void searchDelivery_master_returnsPagedSummaries() {
         Delivery delivery = Delivery.builder()
                 .deliveryId(UUID.randomUUID()).orderId(UUID.randomUUID())
@@ -454,7 +432,7 @@ class DeliveryServiceTest {
                 .deliveryAddress("주소").recipientName("김말숙").build();
         Pageable pageable = PageRequest.of(0, 10);
 
-        when(deliveryRepository.search(any(), any(), any(), any(), any(), any(), any()))
+        when(deliveryRepository.search(any(), any()))
                 .thenReturn(new PageImpl<>(List.of(delivery), pageable, 1));
 
         ApiResponse<PageResponse<DeliverySummaryResponseDto>> response =
@@ -472,14 +450,14 @@ class DeliveryServiceTest {
         when(userClient.getUser(userId)).thenReturn(ApiResponse.success(
                 UserInfoResponse.builder().userId(userId).role(UserRole.HUB_MANAGER).hubId(hubId).build()
         ));
-        when(deliveryRepository.search(any(), any(), any(), any(), any(), any(), any()))
+        when(deliveryRepository.search(any(), any()))
                 .thenReturn(new PageImpl<>(List.of()));
 
         deliveryService.searchDelivery(null, null, null, PageRequest.of(0, 10), userId, UserRole.HUB_MANAGER);
 
-        ArgumentCaptor<UUID> scopeHubIdCaptor = ArgumentCaptor.forClass(UUID.class);
-        verify(deliveryRepository).search(any(), any(), any(), scopeHubIdCaptor.capture(), any(), any(), any());
-        assertThat(scopeHubIdCaptor.getValue()).isEqualTo(hubId);
+        ArgumentCaptor<DeliverySearchCriteria> criteriaCaptor = ArgumentCaptor.forClass(DeliverySearchCriteria.class);
+        verify(deliveryRepository).search(criteriaCaptor.capture(), any());
+        assertThat(criteriaCaptor.getValue().scopeHubId()).isEqualTo(hubId);
     }
 
     @Test
@@ -487,14 +465,15 @@ class DeliveryServiceTest {
         UUID userId = UUID.randomUUID();
         List<UUID> routeDeliveryIds = List.of(UUID.randomUUID());
         when(deliveryRouteRepository.findDeliveryIdByHubDeliveryManagerId(userId)).thenReturn(routeDeliveryIds);
-        when(deliveryRepository.search(any(), any(), any(), any(), any(), any(), any()))
+        when(deliveryRepository.search(any(), any()))
                 .thenReturn(new PageImpl<>(List.of()));
 
         deliveryService.searchDelivery(null, null, null, PageRequest.of(0, 10), userId, UserRole.DELIVERY_MANAGER);
 
-        ArgumentCaptor<UUID> scopeManagerIdCaptor = ArgumentCaptor.forClass(UUID.class);
-        verify(deliveryRepository).search(any(), any(), any(), any(), scopeManagerIdCaptor.capture(), eq(routeDeliveryIds), any());
-        assertThat(scopeManagerIdCaptor.getValue()).isEqualTo(userId);
+        ArgumentCaptor<DeliverySearchCriteria> criteriaCaptor = ArgumentCaptor.forClass(DeliverySearchCriteria.class);
+        verify(deliveryRepository).search(criteriaCaptor.capture(), any());
+        assertThat(criteriaCaptor.getValue().scopeManagerId()).isEqualTo(userId);
+        assertThat(criteriaCaptor.getValue().scopeRouteDeliveryIds()).isEqualTo(routeDeliveryIds);
     }
 
     @Test
