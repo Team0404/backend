@@ -11,6 +11,7 @@ dependencies {
     // 서비스 디스커버리 + 서비스 간 통신 (재고/배송 연동)
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'io.github.resilience4j:resilience4j-retry'
 
     // QueryDSL
     implementation 'io.github.openfeign.querydsl:querydsl-jpa:6.11'

@@ -41,6 +41,7 @@ public class OrderServiceImpl implements OrderService {
     private final CompanyClient companyClient;
     private final DeliveryClient deliveryClient;
     private final UserClient userClient;
+    private final OrderSagaRemoteService orderSagaRemoteService;
 
     @Override
     @Transactional(noRollbackFor = OrderCreationCompensationException.class)
@@ -94,14 +95,19 @@ public class OrderServiceImpl implements OrderService {
         try {
             for (CreateOrderRequest.OrderItemRequest itemRequest : request.orderItems()) {
                 ProductResponse product = productResponses.get(itemRequest.productId());
-                productClient.decreaseStock(itemRequest.productId(), itemRequest.quantity());
-
                 OrderItem orderItem = OrderItem.builder()
                         .productId(itemRequest.productId())
                         .productName(product.name())
                         .unitPrice(product.price())
                         .quantity(itemRequest.quantity())
+                        .stockOperationId(UUID.randomUUID())
                         .build();
+
+                orderSagaRemoteService.decreaseStock(
+                        itemRequest.productId(),
+                        itemRequest.quantity(),
+                        orderItem.decreaseStockReferenceId()
+                );
 
                 order.addOrderItem(orderItem);
                 createdOrderItems.add(orderItem);
@@ -109,19 +115,16 @@ public class OrderServiceImpl implements OrderService {
 
             savedOrder = orderRepository.save(order);
 
-            DeliveryCreateResponse delivery = requireData(
-                    deliveryClient.createDelivery(new DeliveryCreateRequest(
-                            savedOrder.getId(),
-                            originHubId,
-                            company.hubId(),
-                            company.address(),
-                            company.name(),
-                            user.slackId(),
-                            productInfo,
-                            request.requestNote()
-                    )),
-                    "배송 생성에 실패했습니다."
-            );
+            DeliveryCreateResponse delivery = orderSagaRemoteService.createDelivery(new DeliveryCreateRequest(
+                    savedOrder.getId(),
+                    originHubId,
+                    company.hubId(),
+                    company.address(),
+                    company.name(),
+                    user.slackId(),
+                    productInfo,
+                    request.requestNote()
+            ));
 
             savedOrder.setDeliveryId(delivery.deliveryId());
             savedOrder.updateStatus(OrderStatus.READY);
@@ -204,7 +207,11 @@ public class OrderServiceImpl implements OrderService {
         validateCancelableStatus(order);
 
         for (OrderItem orderItem : order.getOrderItems()) {
-            productClient.restoreStock(orderItem.getProductId(), orderItem.getQuantity());
+            orderSagaRemoteService.restoreStock(
+                    orderItem.getProductId(),
+                    orderItem.getQuantity(),
+                    orderItem.restoreStockReferenceId()
+            );
         }
 
         if (order.getDeliveryId() != null) {
@@ -235,7 +242,11 @@ public class OrderServiceImpl implements OrderService {
 
         for (OrderItem orderItem : createdOrderItems) {
             try {
-                productClient.restoreStock(orderItem.getProductId(), orderItem.getQuantity());
+                orderSagaRemoteService.restoreStock(
+                        orderItem.getProductId(),
+                        orderItem.getQuantity(),
+                        orderItem.restoreStockReferenceId()
+                );
             } catch (Exception exception) {
                 log.error(
                         "재고 복구 실패. productId={}, quantity={}",
